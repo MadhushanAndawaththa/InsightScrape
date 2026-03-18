@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { checkHealth, runAudit, AuditResult, SectionAnalysis } from '../api/audit';
+import { useState, useEffect, type FormEvent } from 'react';
+import { checkHealth, runAudit, type AuditResult, type SectionAnalysis } from '../api/audit';
 import ReactMarkdown from 'react-markdown';
 
 export const AuditApp = () => {
@@ -30,7 +30,7 @@ export const AuditApp = () => {
         return () => { isMounted = false; };
     }, []);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (!url) return;
         setStatus('loading');

@@ -7,7 +7,7 @@ A lightweight, AI-native website audit tool that extracts factual metrics from a
 InsightScrape employs a decoupled, AI-native architecture:
 - **Frontend**: React + Vite + Tailwind CSS (Deployable to Vercel)
 - **Backend API**: Python + FastAPI (Deployable to Render)
-- **AI Engine**: Google Gemini 2.0 Flash
+- **AI Engine**: Google Gemini 2.0 Flash (via `google-genai` SDK)
 - **Data Extractor**: HTTPX + BeautifulSoup4
 
 ### The Two-Stage AI Reasoning Pipeline
