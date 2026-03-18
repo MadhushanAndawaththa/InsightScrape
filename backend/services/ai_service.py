@@ -1,17 +1,23 @@
 import os
 import json
-from typing import List, Tuple
-import google.generativeai as genai
+from typing import List
+from google import genai
+from google.genai import types
 from models import PageMetrics, SEOAnalysis, Recommendation
 from services.prompt_tracer import PromptTracer
-from pydantic import TypeAdapter
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "DUMMY"))
+MODEL = "gemini-2.0-flash"
 
-# Set up the model for structured output
-model = genai.GenerativeModel(
-    "gemini-2.0-flash"
-)
+_client = None
+
+def get_client() -> genai.Client:
+    global _client
+    if _client is None:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable is not set. Copy .env.example to .env and add your key.")
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 async def analyze_page(metrics: PageMetrics, page_content: str, tracer: PromptTracer) -> SEOAnalysis:
     system_prompt = """You are a senior web strategist at a digital agency specializing in SEO, conversion optimization, and UX. 
@@ -38,18 +44,17 @@ Do not make generic statements. Provide scores from 1-10 for each category along
 Perform your analysis and return it as a structured JSON matching the requested schema.
 """
     
-    response = model.generate_content(
-        contents=[
-            {"role": "user", "parts": [{"text": system_prompt}]},
-            {"role": "user", "parts": [{"text": user_prompt}]}
-        ],
-        generation_config=genai.GenerationConfig(
+    response = get_client().models.generate_content(
+        model=MODEL,
+        contents=user_prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
             response_mime_type="application/json",
             response_schema=SEOAnalysis,
-            temperature=0.2
-        )
+            temperature=0.2,
+        ),
     )
-    
+
     raw_text = response.text
     try:
         parsed_out = json.loads(raw_text)
@@ -61,7 +66,7 @@ Perform your analysis and return it as a structured JSON matching the requested 
     token_usage = {
         "prompt_token_count": response.usage_metadata.prompt_token_count,
         "candidates_token_count": response.usage_metadata.candidates_token_count,
-        "total_token_count": response.usage_metadata.total_token_count
+        "total_token_count": response.usage_metadata.total_token_count,
     }
 
     tracer.add_stage("Stage 1 - Analysis", system_prompt, user_prompt, raw_text, parsed_out, token_usage)
@@ -93,20 +98,17 @@ UX Score: {analysis.ux_score}
 Return a list of strictly 3 to 5 recommendations matching the JSON schema.
 """
 
-    list_schema = TypeAdapter(List[Recommendation]).json_schema()
-
-    response = model.generate_content(
-        contents=[
-            {"role": "user", "parts": [{"text": system_prompt}]},
-            {"role": "user", "parts": [{"text": user_prompt}]}
-        ],
-        generation_config=genai.GenerationConfig(
+    response = get_client().models.generate_content(
+        model=MODEL,
+        contents=user_prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
             response_mime_type="application/json",
-            response_schema=list_schema,
-            temperature=0.2
-        )
+            response_schema=list[Recommendation],
+            temperature=0.2,
+        ),
     )
-    
+
     raw_text = response.text
     try:
         parsed_out = json.loads(raw_text)
@@ -118,7 +120,7 @@ Return a list of strictly 3 to 5 recommendations matching the JSON schema.
     token_usage = {
         "prompt_token_count": response.usage_metadata.prompt_token_count,
         "candidates_token_count": response.usage_metadata.candidates_token_count,
-        "total_token_count": response.usage_metadata.total_token_count
+        "total_token_count": response.usage_metadata.total_token_count,
     }
 
     tracer.add_stage("Stage 2 - Recommendations", system_prompt, user_prompt, raw_text, parsed_out, token_usage)

@@ -1,10 +1,11 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from routes import audit
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv()  # MUST run before any imports that trigger genai.configure()
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from routes import audit
 
 app = FastAPI(title="InsightScrape API")
 
