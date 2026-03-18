@@ -1,1 +1,47 @@
 @import 'tailwindcss';
+
+/* ── Dark mode class strategy ─────────────────────────────────── */
+:root {
+  color-scheme: light dark;
+}
+
+/* ── Smooth page-level transitions ────────────────────────────── */
+body {
+  @apply transition-colors duration-300;
+}
+
+/* ── Score ring animation ─────────────────────────────────────── */
+@keyframes score-fill {
+  from { stroke-dashoffset: 251; }
+}
+
+.score-ring {
+  animation: score-fill 1.2s ease-out forwards;
+}
+
+/* ── Skeleton pulse for loading cards ─────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ── Progress steps animation ─────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out forwards;
+}
+
+/* ── Prose in dark mode ───────────────────────────────────────── */
+.dark .prose { color: #d1d5db; }
+.dark .prose strong { color: #f3f4f6; }
+.dark .prose a { color: #93c5fd; }
