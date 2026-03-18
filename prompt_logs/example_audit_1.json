@@ -1,0 +1,90 @@
+[
+  {
+    "stage": "Stage 1 - Analysis",
+    "system_prompt": "You are a senior web strategist at a digital agency specializing in SEO, conversion optimization, and UX.\nAnalyze this webpage using ONLY the provided metrics and content.\nSpecifically check for Heading Hierarchy Violations (e.g., H3 appearing before any H2, missing H1, level skips).\nYou MUST reference specific metrics by name and value in your findings (e.g., 'Word count of 300' or '80% of images lack alt text').\nDo not make generic statements. Provide scores from 1-10 for each category along with findings and evidence.",
+    "user_prompt": "\n## Page Metrics Summary\n- Word Count: 421\n- CTA Count: 3\n- Internal/External Links: 15 / 2\n- Images: 5 total (2 totally missing alt, 0 intentionally empty alt=\"\")\n- Title: Welcome to Acme Corp\n- Description: Acme Corp is the leading provider of widgets.\n\n## Heading Hierarchy\n[\n  [\"H2\", \"About Us\"],\n  [\"H3\", \"Our Team\"],\n  [\"H2\", \"Pricing\"]\n]\n\n## Page Content (Excerpts)\nWelcome to Acme Corp\n...",
+    "raw_response": "{\n  \"structure_score\": 3,\n  \"messaging_score\": 7,\n  \"cta_score\": 6,\n  \"content_depth_score\": 5,\n  \"ux_score\": 4,\n  \"overall_score\": 5,\n  \"structure_analysis\": {\n    \"score\": 3,\n    \"findings\": \"The page lacks an H1 tag and starts directly with an H2 ('About Us'). This is a severe SEO hierarchy violation.\",\n    \"evidence\": \"Heading hierarchy shows first element is H2, missing H1\"\n  },\n  \"messaging_analysis\": {\n    \"score\": 7,\n    \"findings\": \"Messaging is clear but word count is very low.\",\n    \"evidence\": \"Word Count: 421\"\n  },\n  \"cta_analysis\": {\n    \"score\": 6,\n    \"findings\": \"CTAs are present but not abundant.\",\n    \"evidence\": \"CTA Count: 3\"\n  },\n  \"content_depth_analysis\": {\n    \"score\": 5,\n    \"findings\": \"Content is thin, with only 421 words it may struggle to rank for competitive terms.\",\n    \"evidence\": \"Word Count: 421\"\n  },\n  \"ux_analysis\": {\n    \"score\": 4,\n    \"findings\": \"Significant accessibility issues with images.\",\n    \"evidence\": \"2 images are totally missing alt text out of 5 total images (40%).\"\n  }\n}",
+    "parsed_response": {
+      "structure_score": 3,
+      "messaging_score": 7,
+      "cta_score": 6,
+      "content_depth_score": 5,
+      "ux_score": 4,
+      "overall_score": 5,
+      "structure_analysis": {
+        "score": 3,
+        "findings": "The page lacks an H1 tag and starts directly with an H2 ('About Us'). This is a severe SEO hierarchy violation.",
+        "evidence": "Heading hierarchy shows first element is H2, missing H1"
+      },
+      "messaging_analysis": {
+        "score": 7,
+        "findings": "Messaging is clear but word count is very low.",
+        "evidence": "Word Count: 421"
+      },
+      "cta_analysis": {
+        "score": 6,
+        "findings": "CTAs are present but not abundant.",
+        "evidence": "CTA Count: 3"
+      },
+      "content_depth_analysis": {
+        "score": 5,
+        "findings": "Content is thin, with only 421 words it may struggle to rank for competitive terms.",
+        "evidence": "Word Count: 421"
+      },
+      "ux_analysis": {
+        "score": 4,
+        "findings": "Significant accessibility issues with images.",
+        "evidence": "2 images are totally missing alt text out of 5 total images (40%)."
+      }
+    },
+    "timestamp": "2024-03-20T10:00:00Z",
+    "model": "gemini-2.0-flash",
+    "token_usage": {
+      "prompt_token_count": 350,
+      "candidates_token_count": 200,
+      "total_token_count": 550
+    }
+  },
+  {
+    "stage": "Stage 2 - Recommendations",
+    "system_prompt": "You are a senior web consultant.\nBased on the provided audit analysis and raw metrics, provide 3 to 5 highly prioritized, actionable recommendations.\nYour recommendations MUST be directly grounded in the metrics or the structured analysis.\nSpecify the grounded metric (e.g. 'H1 hierarchy violation: H3 found before H2' or '5 missing alt tags').",
+    "user_prompt": "\n## Raw Metrics\nWord Count: 421\nMissing Alt Tags: 2\nTitle: Welcome to Acme Corp\nDescription: Acme Corp is the leading provider of widgets.\nHeadings: {'h1': 0, 'h2': 2, 'h3': 1, 'h4': 0, 'h5': 0, 'h6': 0}\n\n## Structured Analysis\nOverall Score: 5/10\nStructure Score: 3\nMessaging Score: 7\nCTA Score: 6\nContent Depth Score: 5\nUX Score: 4\n\nReturn a list of strictly 3 to 5 recommendations matching the JSON schema.\n",
+    "raw_response": "[\n  {\n    \"priority\": 1,\n    \"category\": \"seo\",\n    \"title\": \"Fix the missing H1 tag\",\n    \"description\": \"The page completely lacks an H1 tag and begins with an H2. This is a severe SEO penalty and harms structure.\",\n    \"grounded_metric\": \"Heading hierarchy shows no H1, first element is H2\",\n    \"action\": \"Add a single, descriptive H1 tag to the top of the page.\",\n    \"expected_impact\": \"High\"\n  },\n  {\n    \"priority\": 2,\n    \"category\": \"ux\",\n    \"title\": \"Add missing alt text to images\",\n    \"description\": \"There are images that are totally missing alt text, which is an accessibility violation and a missed SEO opportunity.\",\n    \"grounded_metric\": \"2 images totally missing alt text (40%)\",\n    \"action\": \"Audit all images and add descriptive alt tags, or use empty alt='' if purely decorative.\",\n    \"expected_impact\": \"Medium\"\n  },\n  {\n    \"priority\": 3,\n    \"category\": \"content\",\n    \"title\": \"Expand content depth\",\n    \"description\": \"The page is quite thin. Expanding the word count will provide more context to search engines and users.\",\n    \"grounded_metric\": \"Word Count: 421\",\n    \"action\": \"Add 300-500 words of relevant content, perhaps expanding on 'Pricing' or 'About Us'.\",\n    \"expected_impact\": \"Medium\"\n  }\n]",
+    "parsed_response": [
+      {
+        "priority": 1,
+        "category": "seo",
+        "title": "Fix the missing H1 tag",
+        "description": "The page completely lacks an H1 tag and begins with an H2. This is a severe SEO penalty and harms structure.",
+        "grounded_metric": "Heading hierarchy shows no H1, first element is H2",
+        "action": "Add a single, descriptive H1 tag to the top of the page.",
+        "expected_impact": "High"
+      },
+      {
+        "priority": 2,
+        "category": "ux",
+        "title": "Add missing alt text to images",
+        "description": "There are images that are totally missing alt text, which is an accessibility violation and a missed SEO opportunity.",
+        "grounded_metric": "2 images totally missing alt text (40%)",
+        "action": "Audit all images and add descriptive alt tags, or use empty alt='' if purely decorative.",
+        "expected_impact": "Medium"
+      },
+      {
+        "priority": 3,
+        "category": "content",
+        "title": "Expand content depth",
+        "description": "The page is quite thin. Expanding the word count will provide more context to search engines and users.",
+        "grounded_metric": "Word Count: 421",
+        "action": "Add 300-500 words of relevant content, perhaps expanding on 'Pricing' or 'About Us'.",
+        "expected_impact": "Medium"
+      }
+    ],
+    "timestamp": "2024-03-20T10:00:05Z",
+    "model": "gemini-2.0-flash",
+    "token_usage": {
+      "prompt_token_count": 150,
+      "candidates_token_count": 250,
+      "total_token_count": 400
+    }
+  }
+]
