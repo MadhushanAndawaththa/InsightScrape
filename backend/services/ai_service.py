@@ -1,12 +1,18 @@
 import os
 import json
+import time
 from typing import List
 from google import genai
 from google.genai import types
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 from models import PageMetrics, SEOAnalysis, Recommendation
 from services.prompt_tracer import PromptTracer
 
-MODEL = "gemini-2.0-flash"
+# gemini-2.0-flash-lite: higher free-tier RPM (30 vs 15) and lower token cost
+MODEL = "gemini-2.0-flash-lite"
+
+# Maximum chars of visible page text sent to the model (~3 000 tokens)
+_MAX_PAGE_CHARS = 12_000
 
 _client = None
 
@@ -19,12 +25,37 @@ def get_client() -> genai.Client:
         _client = genai.Client(api_key=api_key)
     return _client
 
+
+def _generate_with_retry(model: str, contents: str, config: types.GenerateContentConfig, max_retries: int = 3):
+    """Call generate_content with exponential backoff on 429 / 503 errors."""
+    delay = 15  # seconds — start conservative for free-tier quota windows
+    for attempt in range(max_retries):
+        try:
+            return get_client().models.generate_content(
+                model=model,
+                contents=contents,
+                config=config,
+            )
+        except (ResourceExhausted, ServiceUnavailable) as exc:
+            if attempt == max_retries - 1:
+                raise
+            print(f"[ai_service] 429/503 on attempt {attempt + 1}, retrying in {delay}s… ({exc})")
+            time.sleep(delay)
+            delay *= 2  # exponential backoff
+        except Exception:
+            raise
+
 async def analyze_page(metrics: PageMetrics, page_content: str, tracer: PromptTracer) -> SEOAnalysis:
     system_prompt = """You are a senior web strategist at a digital agency specializing in SEO, conversion optimization, and UX. 
 Analyze this webpage using ONLY the provided metrics and content. 
 Specifically check for Heading Hierarchy Violations (e.g., H3 appearing before any H2, missing H1, level skips). 
 You MUST reference specific metrics by name and value in your findings (e.g., 'Word count of 300' or '80% of images lack alt text').
 Do not make generic statements. Provide scores from 1-10 for each category along with findings and evidence."""
+
+    # Truncate before building the prompt to cap token usage
+    trimmed = page_content[:_MAX_PAGE_CHARS]
+    if len(page_content) > _MAX_PAGE_CHARS:
+        trimmed += "\n\n...[content truncated]"
 
     user_prompt = f"""
 ## Page Metrics Summary
@@ -39,12 +70,12 @@ Do not make generic statements. Provide scores from 1-10 for each category along
 {json.dumps(metrics.heading_hierarchy, indent=2)}
 
 ## Page Content (Excerpts)
-{page_content}
+{trimmed}
 
 Perform your analysis and return it as a structured JSON matching the requested schema.
 """
-    
-    response = get_client().models.generate_content(
+
+    response = _generate_with_retry(
         model=MODEL,
         contents=user_prompt,
         config=types.GenerateContentConfig(
@@ -98,7 +129,7 @@ UX Score: {analysis.ux_score}
 Return a list of strictly 3 to 5 recommendations matching the JSON schema.
 """
 
-    response = get_client().models.generate_content(
+    response = _generate_with_retry(
         model=MODEL,
         contents=user_prompt,
         config=types.GenerateContentConfig(
