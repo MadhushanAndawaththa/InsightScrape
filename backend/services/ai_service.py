@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import asyncio
 from typing import List
 from google import genai
 from google.genai import types
@@ -45,35 +46,64 @@ def _generate_with_retry(model: str, contents: str, config: types.GenerateConten
         except Exception:
             raise
 
-async def analyze_page(metrics: PageMetrics, page_content: str, tracer: PromptTracer) -> SEOAnalysis:
-    system_prompt = """You are a senior web strategist at a digital agency specializing in SEO, conversion optimization, and UX. 
-Analyze this webpage using ONLY the provided metrics and content. 
-Specifically check for Heading Hierarchy Violations (e.g., H3 appearing before any H2, missing H1, level skips). 
-You MUST reference specific metrics by name and value in your findings (e.g., 'Word count of 300' or '80% of images lack alt text').
-Do not make generic statements. Provide scores from 1-10 for each category along with findings and evidence."""
 
-    # Truncate before building the prompt to cap token usage
+async def analyze_page(metrics: PageMetrics, page_content: str, tracer: PromptTracer) -> SEOAnalysis:
+    """Stage 1 — Structured analysis of the scraped page.
+    
+    Prompt engineering follows Gemini best practices:
+    - XML-style tags to separate role, context, constraints, and task
+    - Metrics-first layout: facts before content so the model anchors on data
+    - Truncated page content to minimize token burn while preserving analysis quality
+    - Low temperature (0.2) for deterministic, fact-grounded scoring
+    """
+
+    system_prompt = """<role>
+You are a senior web strategist at a digital agency specializing in SEO, conversion optimization, and UX.
+You are precise, analytical, and data-driven.
+</role>
+
+<constraints>
+1. Analyze ONLY using the provided metrics and content — do not use external knowledge.
+2. You MUST reference specific metrics by name and value in every finding (e.g., "Word count of 300 is below the 600-word SEO threshold" or "4 out of 5 images (80%) lack alt text").
+3. Specifically check for Heading Hierarchy Violations: H3 before any H2, missing H1, level skips (H1 → H3).
+4. Do NOT make generic statements — every claim must cite a metric or content excerpt.
+5. Scores must be integers from 1 to 10.
+</constraints>
+
+<output_format>
+Return a single JSON object matching the provided schema with scores, findings, and evidence for each category.
+</output_format>"""
+
+    # Truncate page content before building the prompt to cap token usage
     trimmed = page_content[:_MAX_PAGE_CHARS]
     if len(page_content) > _MAX_PAGE_CHARS:
         trimmed += "\n\n...[content truncated]"
 
-    user_prompt = f"""
-## Page Metrics Summary
+    user_prompt = f"""<context>
+## Extracted Page Metrics (Deterministic — scraped from HTML)
 - Word Count: {metrics.word_count}
 - CTA Count: {metrics.cta_count}
-- Internal/External Links: {metrics.internal_links} / {metrics.external_links}
-- Images: {metrics.image_count} total ({metrics.images_missing_alt_count} totally missing alt, {metrics.images_decorative_alt_count} intentionally empty alt="")
-- Title: {metrics.meta_title or 'Missing'}
-- Description: {metrics.meta_description or 'Missing'}
+- Internal Links: {metrics.internal_links}
+- External Links: {metrics.external_links}
+- Total Images: {metrics.image_count}
+- Images Missing Alt Text: {metrics.images_missing_alt_count} ({metrics.images_missing_alt_pct}%)
+- Images with Decorative Alt (alt=""): {metrics.images_decorative_alt_count}
+- Meta Title: {metrics.meta_title or 'MISSING'}
+- Meta Description: {metrics.meta_description or 'MISSING'}
+- Heading Counts: {json.dumps(metrics.headings_count)}
 
-## Heading Hierarchy
-{json.dumps(metrics.heading_hierarchy, indent=2)}
+## Heading Hierarchy (order as found in HTML)
+{json.dumps(metrics.heading_hierarchy)}
 
-## Page Content (Excerpts)
+## Page Content (visible text excerpt)
 {trimmed}
+</context>
 
-Perform your analysis and return it as a structured JSON matching the requested schema.
-"""
+<task>
+Analyze the page above across all five categories (structure, messaging, CTAs, content depth, UX).
+For each category, provide a score (1-10), findings grounded in specific metrics, and direct evidence.
+Return the result as structured JSON matching the schema.
+</task>"""
 
     response = _generate_with_retry(
         model=MODEL,
@@ -105,29 +135,52 @@ Perform your analysis and return it as a structured JSON matching the requested 
 
 
 async def recommend_actions(metrics: PageMetrics, analysis: SEOAnalysis, tracer: PromptTracer) -> List[Recommendation]:
-    system_prompt = """You are a senior web consultant. 
-Based on the provided audit analysis and raw metrics, provide 3 to 5 highly prioritized, actionable recommendations.
-Your recommendations MUST be directly grounded in the metrics or the structured analysis.
-Specify the grounded metric (e.g. 'H1 hierarchy violation: H3 found before H2' or '5 missing alt tags')."""
+    """Stage 2 — Generate prioritized recommendations from Stage 1 analysis.
+    
+    This is a chained prompt: Stage 1 output becomes Stage 2 input context.
+    The prompt is concise because it only references structured data (no raw HTML).
+    """
 
-    user_prompt = f"""
-## Raw Metrics
-Word Count: {metrics.word_count}
-Missing Alt Tags: {metrics.images_missing_alt_count}
-Title: {metrics.meta_title or 'Missing'}
-Description: {metrics.meta_description or 'Missing'}
-Headings: {metrics.headings_count}
+    system_prompt = """<role>
+You are a senior web consultant who provides actionable, prioritized website improvement recommendations.
+</role>
 
-## Structured Analysis
-Overall Score: {analysis.overall_score}/10
-Structure Score: {analysis.structure_score}
-Messaging Score: {analysis.messaging_score}
-CTA Score: {analysis.cta_score}
-Content Depth Score: {analysis.content_depth_score}
-UX Score: {analysis.ux_score}
+<constraints>
+1. Generate exactly 3 to 5 recommendations, no more, no fewer.
+2. Every recommendation MUST be directly grounded in a specific metric or analysis finding — never generic advice.
+3. Prioritize by impact: priority 1 = highest impact, must-fix; priority 3 = nice-to-have improvement.
+4. The "grounded_metric" field must cite the exact data point (e.g., "4 images missing alt text" or "Structure score: 3/10").
+5. The "action" field must be a specific, implementable step (not vague like "improve SEO").
+6. The "expected_impact" field must describe the concrete outcome of the action.
+</constraints>
 
-Return a list of strictly 3 to 5 recommendations matching the JSON schema.
-"""
+<output_format>
+Return a JSON array of 3-5 recommendation objects matching the provided schema.
+</output_format>"""
+
+    user_prompt = f"""<context>
+## Raw Metrics (factual)
+- Word Count: {metrics.word_count}
+- Images Missing Alt Text: {metrics.images_missing_alt_count} ({metrics.images_missing_alt_pct}%)
+- Meta Title: {metrics.meta_title or 'MISSING'}
+- Meta Description: {metrics.meta_description or 'MISSING'}
+- Headings: {json.dumps(metrics.headings_count)}
+- CTAs Found: {metrics.cta_count}
+- Internal Links: {metrics.internal_links} | External Links: {metrics.external_links}
+
+## AI Analysis Scores (from Stage 1)
+- Overall: {analysis.overall_score}/10
+- Structure & SEO: {analysis.structure_score}/10 — {analysis.structure_analysis.findings[:200]}
+- Messaging: {analysis.messaging_score}/10 — {analysis.messaging_analysis.findings[:200]}
+- CTAs: {analysis.cta_score}/10 — {analysis.cta_analysis.findings[:200]}
+- Content Depth: {analysis.content_depth_score}/10 — {analysis.content_depth_analysis.findings[:200]}
+- UX: {analysis.ux_score}/10 — {analysis.ux_analysis.findings[:200]}
+</context>
+
+<task>
+Based on the metrics and analysis above, generate 3-5 prioritized recommendations.
+Focus on the lowest-scoring categories first. Each recommendation must cite specific data.
+</task>"""
 
     response = _generate_with_retry(
         model=MODEL,

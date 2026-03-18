@@ -17,17 +17,17 @@ class PageMetrics(BaseModel):
     meta_description: Optional[str] = None
 
 class SectionAnalysis(BaseModel):
-    score: int = Field(ge=1, le=10)
-    findings: str
-    evidence: str
+    score: int = Field(ge=1, le=10, description="Score from 1 (worst) to 10 (best) for this category.")
+    findings: str = Field(description="Detailed findings referencing specific metrics by name and value. Use markdown.")
+    evidence: str = Field(description="Direct evidence from the page content or metrics supporting the findings.")
 
 class SEOAnalysis(BaseModel):
-    structure_score: int = Field(ge=1, le=10)
-    messaging_score: int = Field(ge=1, le=10)
-    cta_score: int = Field(ge=1, le=10)
-    content_depth_score: int = Field(ge=1, le=10)
-    ux_score: int = Field(ge=1, le=10)
-    overall_score: int = Field(ge=1, le=10)
+    structure_score: int = Field(ge=1, le=10, description="Score for HTML structure, heading hierarchy, and technical SEO.")
+    messaging_score: int = Field(ge=1, le=10, description="Score for clarity, value proposition, and brand messaging.")
+    cta_score: int = Field(ge=1, le=10, description="Score for quality, placement, and persuasiveness of calls to action.")
+    content_depth_score: int = Field(ge=1, le=10, description="Score for content depth, expertise, and topical coverage.")
+    ux_score: int = Field(ge=1, le=10, description="Score for user experience signals inferred from page structure and content.")
+    overall_score: int = Field(ge=1, le=10, description="Weighted overall score across all categories.")
     structure_analysis: SectionAnalysis
     messaging_analysis: SectionAnalysis
     cta_analysis: SectionAnalysis
@@ -35,13 +35,13 @@ class SEOAnalysis(BaseModel):
     ux_analysis: SectionAnalysis
 
 class Recommendation(BaseModel):
-    priority: int = Field(ge=1, le=5)
+    priority: int = Field(ge=1, le=5, description="1 = highest impact must-fix, 5 = nice-to-have improvement.")
     category: Literal["seo", "messaging", "cta", "content", "ux"]
-    title: str
-    description: str
-    grounded_metric: str
-    action: str
-    expected_impact: str
+    title: str = Field(description="Short, actionable title for the recommendation.")
+    description: str = Field(description="Detailed explanation of the issue and why it matters.")
+    grounded_metric: str = Field(description="The exact metric or data point this recommendation is based on, e.g. '4 images missing alt text'.")
+    action: str = Field(description="Specific, implementable fix — not vague advice.")
+    expected_impact: str = Field(description="Concrete expected outcome of implementing the action.")
 
 class PromptLog(BaseModel):
     stage: str
@@ -50,7 +50,7 @@ class PromptLog(BaseModel):
     raw_response: str
     parsed_response: str
     timestamp: str
-    model: str = "gemini-2.0-flash"
+    model: str = "gemini-2.0-flash-lite"
     token_usage: Optional[Dict[str, int]] = None
 
 class AuditResult(BaseModel):
