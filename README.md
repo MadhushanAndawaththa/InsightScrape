@@ -54,3 +54,28 @@ Both stages use XML-style prompt tags (`<role>`, `<constraints>`, `<context>`, `
 2. `npm install`
 3. `npm run dev`
 4. The React app is available on `http://localhost:5173`. Make sure the backend is running!
+
+### Running Tests
+
+#### Backend (69 tests)
+```bash
+cd backend
+./venv/Scripts/python.exe -m pytest tests/ -v   # Windows
+# or: python -m pytest tests/ -v                # Mac/Linux
+```
+
+Tests cover:
+- **Scraper**: CTA detection (keyword, class, role, nav filtering), metrics extraction (headings, images, links, meta), binary content detection, edge cases
+- **Models**: Pydantic validation (score ranges, required fields, serialization roundtrip)
+- **AI Service**: Weighted score computation, prompt construction logic, content truncation
+- **API Routes**: Health endpoint, input validation, SSRF protection (localhost/127.0.0.1 blocked)
+
+#### Frontend (15 tests)
+```bash
+cd frontend
+npm test
+```
+
+Tests cover:
+- **API Module**: Request construction, error handling, health check
+- **AuditApp Component**: Rendering, dark mode toggle + persistence, form validation

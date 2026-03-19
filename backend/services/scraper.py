@@ -12,26 +12,65 @@ async def _fetch_with_playwright(url: str) -> str:
     from playwright.async_api import async_playwright
 
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True)
+        browser = await pw.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+            ],
+        )
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
             viewport={"width": 1440, "height": 900},
             java_script_enabled=True,
+            locale="en-US",
+            timezone_id="America/New_York",
+        )
+        # Remove the webdriver flag so sites don't detect automation
+        await context.add_init_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         )
         page = await context.new_page()
-        await page.goto(url, wait_until="networkidle", timeout=25000)
-        html = await page.content()
-        await browser.close()
+
+        try:
+            # First load — wait for network to settle
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+
+            # Wait for JS rendering: either networkidle or a reasonable timeout
+            try:
+                await page.wait_for_load_state("networkidle", timeout=10000)
+            except Exception:
+                pass  # Some SPAs never reach networkidle; that's OK
+
+            # Extra wait for loading animations / spinners to disappear
+            # Check if the page has minimal content yet; if not, wait longer
+            for _ in range(5):
+                body_text = await page.evaluate("document.body?.innerText?.length || 0")
+                if body_text > 100:
+                    break
+                await page.wait_for_timeout(1000)
+
+            html = await page.content()
+        finally:
+            await browser.close()
+
         return html
 
 
 async def _fetch_with_httpx(url: str) -> str:
     """Lightweight fallback: fast but cannot render JS or bypass bot-protection."""
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/131.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "none",
@@ -40,19 +79,56 @@ async def _fetch_with_httpx(url: str) -> str:
     async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
         response = await client.get(url, headers=headers)
         response.raise_for_status()
-        return response.text
+
+        # Guard against binary responses (compressed without decompression, PDFs, etc.)
+        content_type = response.headers.get("content-type", "")
+        if "text" not in content_type and "html" not in content_type and "xml" not in content_type:
+            raise ValueError(f"Non-HTML content-type: {content_type}")
+
+        text = response.text
+        # Detect if the "text" is actually binary garbage
+        if text and _is_binary_content(text):
+            raise ValueError("Response appears to be binary/compressed — cannot parse as HTML")
+
+        return text
+
+
+def _is_binary_content(text: str, sample_size: int = 500) -> bool:
+    """Heuristic: if more than 15% of chars in the first N chars are non-printable,
+    the content is likely binary/compressed."""
+    sample = text[:sample_size]
+    non_printable = sum(
+        1 for ch in sample
+        if not ch.isprintable() and ch not in ('\n', '\r', '\t')
+    )
+    return (non_printable / max(len(sample), 1)) > 0.15
 
 
 async def fetch_page(url: str) -> Tuple[str, str]:
     """Fetch a page's HTML. Returns (html, scrape_method).
     Tries Playwright first for JS-rendered content; falls back to httpx."""
+    pw_error = None
     try:
         html = await _fetch_with_playwright(url)
-        return html, "playwright"
-    except Exception as pw_err:
-        print(f"[scraper] Playwright failed ({pw_err}), falling back to httpx…")
+        # Validate we actually got meaningful HTML
+        if html and len(html.strip()) > 100 and not _is_binary_content(html):
+            return html, "playwright"
+        pw_error = "Playwright returned empty or binary content"
+    except Exception as e:
+        pw_error = str(e)
+
+    print(f"[scraper] Playwright failed ({pw_error}), falling back to httpx…")
+
+    try:
         html = await _fetch_with_httpx(url)
         return html, "httpx"
+    except Exception as httpx_err:
+        # Both methods failed — raise the more informative error
+        raise RuntimeError(
+            f"Both scrapers failed.\n"
+            f"  Playwright: {pw_error}\n"
+            f"  httpx: {httpx_err}"
+        )
 
 
 # ─── CTA Detection ───────────────────────────────────────────
@@ -184,6 +260,11 @@ def extract_metrics(html: str, base_url: str, scrape_method: str = "httpx") -> T
             "Limited content extracted — this page likely uses JavaScript rendering. "
             "Some text, images, and interactive elements may not have been captured. "
             "Scores may be lower than the actual page quality."
+        )
+    elif scrape_method == "playwright" and word_count < 50:
+        content_quality_warning = (
+            "Very little content was found even with full JS rendering. "
+            "The page may use advanced loading techniques or may have minimal content."
         )
 
     metrics = PageMetrics(

@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 
-/* ── Dark mode class strategy ─────────────────────────────────── */
+/* ── Dark mode: class-based strategy for Tailwind v4 ──────────── */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light dark;
 }

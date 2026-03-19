@@ -491,10 +491,13 @@ export const AuditApp = () => {
 
             {/* ── Transparency Panel ──────────────────────────── */}
             <section>
-              <SectionHeader icon={Terminal} title="AI Reasoning Trace" subtitle="Full prompt transparency — see exactly what the model received and returned" />
-              <div className="mt-4 rounded-2xl overflow-hidden border border-gray-800 dark:border-white/10 bg-gray-900 dark:bg-black/40">
+              <SectionHeader icon={Terminal} title="Prompt Logs & Reasoning Trace" subtitle="Full AI transparency — see the exact prompts and raw model responses" />
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 ml-12 mb-3">
+                These logs show exactly how the AI analysis was orchestrated — the system prompts, structured inputs, and raw outputs. Click to expand each stage.
+              </p>
+              <div className="mt-2 rounded-2xl overflow-hidden border border-gray-800 dark:border-white/10 bg-gray-900 dark:bg-black/40">
                 {result.prompt_logs.map((log, i) => (
-                  <details key={i} className="group border-b border-gray-800 dark:border-white/5 last:border-0" open={i === 0}>
+                  <details key={i} className="group border-b border-gray-800 dark:border-white/5 last:border-0">
                     <summary className="flex justify-between items-center cursor-pointer list-none p-4 hover:bg-white/5 transition-colors select-none">
                       <div className="flex items-center gap-3">
                         <span className="w-6 h-6 rounded bg-violet-500/20 flex items-center justify-center text-violet-400 font-mono text-xs font-bold">
