@@ -139,7 +139,7 @@ The prompt uses XML-style tags (`<role>`, `<constraints>`, `<context>`, `<task>`
 | 6 | **Deterministic Overall Score** | Computed as a weighted average server-side, never by the AI. Ensures auditability and cross-run consistency. |
 | 7 | **Rich Visual Media Detection** | Detects SVGs, CSS animations, Lottie, `<canvas>`, and WebGL/3D *before* DOM cleanup so nothing is missed. |
 | 8 | **Technical SEO Extraction** | Viewport meta, canonical URLs, robots directives, Open Graph, Twitter Cards, and JSON-LD are all extracted and fed to the AI. |
-| 9 | **Expert Prompt Engineering** | Agency context (*"evaluating as a digital agency like EIGHT25MEDIA"*), a scored rubric (1–10), E-E-A-T signals, and meta-length analysis against ideal character ranges. |
+| 9 | **Expert Prompt Engineering** | Agency-perspective role framing, a scored rubric (1–10), E-E-A-T signals, and meta-length analysis against ideal character ranges. |
 | 10 | **Graceful AI Failure** | If the AI errors (rate limit, timeout), the tool still returns all scraped metrics — partial but useful results instead of a blank page. |
 
 ---

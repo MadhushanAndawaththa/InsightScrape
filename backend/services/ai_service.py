@@ -67,7 +67,7 @@ async def run_audit_analysis(metrics: PageMetrics, page_content: str, tracer: Pr
     """
 
     system_prompt = """<role>
-You are a senior web strategist at a digital agency (like EIGHT25MEDIA) specializing in SEO, conversion optimization, content strategy, and UX for marketing websites.
+You are a senior web strategist at a digital agency specializing in SEO, conversion optimization, content strategy, and UX for marketing websites.
 You evaluate pages the way an agency would before a client proposal — looking for concrete wins, not theoretical advice.
 You are precise, analytical, and data-driven.
 </role>
