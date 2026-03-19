@@ -74,12 +74,12 @@ const MiniBar = ({ score, label }: { score: number; label: string }) => {
   const pct = (score / 10) * 100;
   const color = score >= 8 ? 'bg-emerald-500' : score >= 5 ? 'bg-amber-500' : 'bg-rose-500';
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
+    <div className="space-y-1.5">
+      <div className="flex justify-between text-xs sm:text-sm">
         <span className="text-gray-600 dark:text-gray-400 font-medium">{label}</span>
         <span className={`font-bold ${scoreColor(score)}`}>{score}/10</span>
       </div>
-      <div className="h-1.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
+      <div className="h-2 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
         <div className={`h-full rounded-full ${color} transition-all duration-1000 ease-out`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -199,16 +199,16 @@ export const AuditApp = () => {
 
       {/* ─── Top nav bar ────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-gray-950/80 border-b border-gray-200 dark:border-white/10">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-2.5">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3">
+          <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-lg tracking-tight">InsightScrape</span>
+            <span className="font-bold text-base sm:text-lg tracking-tight">InsightScrape</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {result && (
-              <span className="text-xs font-mono text-gray-400 dark:text-gray-500 hidden sm:block">
+              <span className="text-[11px] font-mono text-gray-400 dark:text-gray-500 hidden sm:block">
                 Audit completed in {formatDuration(result.audit_duration_ms)}
               </span>
             )}
@@ -217,28 +217,28 @@ export const AuditApp = () => {
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
               aria-label="Toggle theme"
             >
-              {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-gray-500" />}
+              {dark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-gray-500" />}
             </button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-8 sm:space-y-10">
 
         {/* ─── Hero / Search ────────────────────────────────── */}
         {(!result || status !== 'success') && (
-          <div className="text-center space-y-6 py-8">
+          <div className="text-center space-y-6 py-6 sm:py-8">
             <div className="space-y-3">
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-400 dark:to-indigo-400 bg-clip-text text-transparent">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-400 dark:to-indigo-400 bg-clip-text text-transparent">
                 AI-Powered Website Audit
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 text-lg max-w-xl mx-auto">
-                Enter any URL to get a deep, AI-driven analysis of SEO, content structure, accessibility, and UX — with full prompt transparency.
+              <p className="text-gray-500 dark:text-gray-400 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
+                Enter any URL to get a deep, AI-driven analysis of SEO, content structure, accessibility, and UX.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
-              <div className="flex gap-2 p-1.5 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
+              <div className="flex flex-col sm:flex-row gap-2 p-1.5 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
                 <div className="flex-1 flex items-center gap-2 pl-4">
                   <Globe className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
@@ -247,14 +247,14 @@ export const AuditApp = () => {
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     required
-                    className="flex-1 bg-transparent outline-none text-sm py-2.5 placeholder-gray-400 dark:placeholder-gray-500"
+                    className="flex-1 bg-transparent outline-none text-sm sm:text-base py-2.5 placeholder-gray-400 dark:placeholder-gray-500"
                     disabled={status === 'warming' || status === 'loading'}
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={status === 'warming' || status === 'loading'}
-                  className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm disabled:opacity-40 transition-all flex items-center gap-2 shadow-md shadow-violet-500/25"
+                  className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm disabled:opacity-40 transition-all flex items-center justify-center gap-2 shadow-md shadow-violet-500/25"
                 >
                   {status === 'warming' ? (
                     <>
@@ -280,7 +280,7 @@ export const AuditApp = () => {
 
         {/* ─── Inline URL bar when results are showing ──────── */}
         {result && status === 'success' && (
-          <form onSubmit={handleSubmit} className="flex gap-2 p-1 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10">
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 p-1.5 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10">
             <div className="flex-1 flex items-center gap-2 pl-3">
               <Globe className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <input
@@ -292,7 +292,7 @@ export const AuditApp = () => {
               />
             </div>
             <button type="submit"
-              className="px-5 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-semibold text-sm flex items-center gap-1.5 shadow-md shadow-violet-500/25 hover:from-violet-700 hover:to-indigo-700 transition-all"
+              className="px-5 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 shadow-md shadow-violet-500/25 hover:from-violet-700 hover:to-indigo-700 transition-all"
             >
               <Search className="w-3.5 h-3.5" /> Re-Audit
             </button>
@@ -312,16 +312,16 @@ export const AuditApp = () => {
 
         {/* ═══════════════ RESULTS ════════════════════════════ */}
         {result && status === 'success' && (
-          <div className="space-y-10 animate-fade-up">
+          <div className="space-y-8 sm:space-y-10 animate-fade-up">
 
             {/* ── Audited URL banner ──────────────────────────── */}
-            <div className="flex items-center gap-3 justify-between flex-wrap">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 justify-between">
               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <Shield className="w-4 h-4 text-emerald-500" />
-                Audit completed for
+                <Shield className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <span>Audit completed for</span>
                 <a href={result.url} target="_blank" rel="noopener noreferrer"
-                  className="text-violet-600 dark:text-violet-400 font-medium hover:underline inline-flex items-center gap-1">
-                  {result.url} <ExternalLink className="w-3 h-3" />
+                  className="text-violet-600 dark:text-violet-400 font-medium hover:underline inline-flex items-center gap-1 break-all">
+                  {result.url} <ExternalLink className="w-3 h-3 flex-shrink-0" />
                 </a>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 font-mono">
@@ -330,9 +330,9 @@ export const AuditApp = () => {
             </div>
 
             {/* ── Overall Score + Sub-scores ───────────────────── */}
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
               {/* Big ring */}
-              <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 p-8 flex flex-col items-center justify-center relative overflow-hidden">
+              <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 p-6 sm:p-8 flex flex-col items-center justify-center relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-indigo-500" />
                 <div className="relative">
                   <ScoreRing score={result.analysis.overall_score} size={140} />
@@ -341,8 +341,8 @@ export const AuditApp = () => {
               </div>
 
               {/* Sub-score bars */}
-              <div className="lg:col-span-2 bg-white dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
-                <h3 className="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category Breakdown</h3>
+              <div className="md:col-span-2 bg-white dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 p-5 sm:p-6 space-y-3 sm:space-y-4">
+                <h3 className="font-bold text-xs sm:text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category Breakdown</h3>
                 <div className="space-y-3">
                   <MiniBar score={result.analysis.structure_score} label="Structure & SEO" />
                   <MiniBar score={result.analysis.messaging_score} label="Messaging & Clarity" />
@@ -358,7 +358,7 @@ export const AuditApp = () => {
               <SectionHeader icon={BarChart3} title="Extracted Metrics" subtitle="Deterministic data — no AI involved" />
 
               {/* Scrape method badge */}
-              <div className="flex items-center gap-2 mt-3 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mt-3 mb-1">
                 <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
                   result.metrics.scrape_method === 'playwright'
                     ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
@@ -379,7 +379,7 @@ export const AuditApp = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-3">
                 <MetricCard icon={FileText} label="Words" value={result.metrics.word_count.toLocaleString()} />
                 <MetricCard icon={MousePointerClick} label="CTAs Found" value={result.metrics.cta_count} accent />
                 <MetricCard icon={Link2} label="Internal Links" value={result.metrics.internal_links} />
@@ -396,7 +396,7 @@ export const AuditApp = () => {
               </div>
 
               {/* Meta info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 p-4">
                   <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Meta Title</div>
                   <div className="text-sm font-medium truncate">{result.metrics.meta_title || <span className="text-rose-500">Missing</span>}</div>
@@ -455,15 +455,15 @@ export const AuditApp = () => {
               <div className="mt-4 space-y-3">
                 {result.recommendations.map((rec, i) => (
                   <div key={i}
-                    className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 p-5 hover:shadow-md dark:hover:shadow-black/20 transition-shadow"
+                    className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 p-4 sm:p-5 hover:shadow-md dark:hover:shadow-black/20 transition-shadow"
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${priorityStyle(rec.priority)}`}>
                         P{rec.priority}
                       </div>
                       <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold">{rec.title}</h3>
+                        <div className="flex items-start sm:items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-sm sm:text-base">{rec.title}</h3>
                           <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 capitalize">
                             {categoryIcon(rec.category)} {rec.category}
                           </span>
@@ -492,7 +492,7 @@ export const AuditApp = () => {
             {/* ── Transparency Panel ──────────────────────────── */}
             <section>
               <SectionHeader icon={Terminal} title="Prompt Logs & Reasoning Trace" subtitle="Full AI transparency — see the exact prompts and raw model responses" />
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 ml-12 mb-3">
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 ml-11 sm:ml-12 mb-3">
                 These logs show exactly how the AI analysis was orchestrated — the system prompts, structured inputs, and raw outputs. Click to expand each stage.
               </p>
               <div className="mt-2 rounded-2xl overflow-hidden border border-gray-800 dark:border-white/10 bg-gray-900 dark:bg-black/40">
@@ -556,19 +556,19 @@ const SectionHeader = ({ icon: Icon, title, subtitle, badge }: {
   badge?: string;
 }) => (
   <div className="flex items-start gap-3">
-    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/20 dark:to-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-      <Icon className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" />
+    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/20 dark:to-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+      <Icon className="w-4 h-4 text-violet-600 dark:text-violet-400" />
     </div>
     <div>
       <div className="flex items-center gap-2">
-        <h2 className="text-xl font-bold">{title}</h2>
+        <h2 className="text-lg sm:text-xl font-bold">{title}</h2>
         {badge && (
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 uppercase tracking-wider">
             {badge}
           </span>
         )}
       </div>
-      {subtitle && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
+      {subtitle && <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
     </div>
   </div>
 );
@@ -580,18 +580,18 @@ const MetricCard = ({ icon: Icon, label, value, warn, accent }: {
   warn?: boolean;
   accent?: boolean;
 }) => (
-  <div className={`p-4 rounded-xl border transition-colors ${
+  <div className={`p-3.5 sm:p-4 rounded-xl border transition-colors ${
     warn
       ? 'bg-rose-50 dark:bg-rose-500/5 border-rose-200 dark:border-rose-500/20'
       : accent
         ? 'bg-violet-50 dark:bg-violet-500/5 border-violet-200 dark:border-violet-500/20'
         : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10'
   }`}>
-    <div className="flex items-center gap-1.5 mb-2">
+    <div className="flex items-center gap-1.5 mb-1.5 sm:mb-2">
       <Icon className={`w-3.5 h-3.5 ${warn ? 'text-rose-500' : accent ? 'text-violet-500' : 'text-gray-400 dark:text-gray-500'}`} />
-      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-[11px] sm:text-xs font-medium text-gray-500 dark:text-gray-400">{label}</span>
     </div>
-    <div className={`text-2xl font-bold ${warn ? 'text-rose-600 dark:text-rose-400' : accent ? 'text-violet-600 dark:text-violet-400' : ''}`}>
+    <div className={`text-xl sm:text-2xl font-bold ${warn ? 'text-rose-600 dark:text-rose-400' : accent ? 'text-violet-600 dark:text-violet-400' : ''}`}>
       {value}
     </div>
   </div>
@@ -606,14 +606,14 @@ const AnalysisCard = ({ label, icon: Icon, analysis }: {
     <div className="flex items-center justify-between p-4 pb-3">
       <div className="flex items-center gap-2">
         <Icon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-        <h3 className="font-bold text-sm">{label}</h3>
+        <h3 className="font-bold text-sm sm:text-base">{label}</h3>
       </div>
       <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${scoreBg(analysis.score)}`}>
         {analysis.score}/10
       </span>
     </div>
     <div className="px-4 pb-4 space-y-3">
-      <div className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+      <div className="prose prose-sm max-w-none text-gray-600 dark:text-gray-400 text-[13px] sm:text-sm leading-relaxed">
         <ReactMarkdown>{analysis.findings}</ReactMarkdown>
       </div>
       <div className="text-xs bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-lg p-3">

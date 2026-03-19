@@ -1,3 +1,5 @@
+import asyncio
+import traceback
 import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
@@ -6,20 +8,20 @@ from models import PageMetrics
 
 # ─── Page Fetching ────────────────────────────────────────────
 
-async def _fetch_with_playwright(url: str) -> str:
-    """Primary fetcher: uses a real Chromium browser to render JS-heavy pages
-    and bypass bot-protection (Cloudflare, WAF). Returns fully rendered HTML."""
-    from playwright.async_api import async_playwright
+def _playwright_sync_fetch(url: str) -> str:
+    """Sync Playwright fetch — runs in a thread to avoid event-loop conflicts
+    with uvicorn on Windows (ProactorEventLoop / subprocess pipe issues)."""
+    from playwright.sync_api import sync_playwright
 
-    async with async_playwright() as pw:
-        browser = await pw.chromium.launch(
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
             headless=True,
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
             ],
         )
-        context = await browser.new_context(
+        context = browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -31,34 +33,40 @@ async def _fetch_with_playwright(url: str) -> str:
             timezone_id="America/New_York",
         )
         # Remove the webdriver flag so sites don't detect automation
-        await context.add_init_script(
+        context.add_init_script(
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         )
-        page = await context.new_page()
+        page = context.new_page()
 
         try:
             # First load — wait for network to settle
-            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
             # Wait for JS rendering: either networkidle or a reasonable timeout
             try:
-                await page.wait_for_load_state("networkidle", timeout=10000)
+                page.wait_for_load_state("networkidle", timeout=10000)
             except Exception:
                 pass  # Some SPAs never reach networkidle; that's OK
 
             # Extra wait for loading animations / spinners to disappear
-            # Check if the page has minimal content yet; if not, wait longer
             for _ in range(5):
-                body_text = await page.evaluate("document.body?.innerText?.length || 0")
+                body_text = page.evaluate("document.body?.innerText?.length || 0")
                 if body_text > 100:
                     break
-                await page.wait_for_timeout(1000)
+                page.wait_for_timeout(1000)
 
-            html = await page.content()
+            html = page.content()
         finally:
-            await browser.close()
+            browser.close()
 
         return html
+
+
+async def _fetch_with_playwright(url: str) -> str:
+    """Primary fetcher: uses a real Chromium browser to render JS-heavy pages
+    and bypass bot-protection (Cloudflare, WAF). Returns fully rendered HTML.
+    Runs the sync Playwright API in a thread to avoid event-loop conflicts."""
+    return await asyncio.to_thread(_playwright_sync_fetch, url)
 
 
 async def _fetch_with_httpx(url: str) -> str:
@@ -115,7 +123,8 @@ async def fetch_page(url: str) -> Tuple[str, str]:
             return html, "playwright"
         pw_error = "Playwright returned empty or binary content"
     except Exception as e:
-        pw_error = str(e)
+        pw_error = f"{type(e).__name__}: {e}" if str(e) else f"{type(e).__name__} (no message)"
+        print(f"[scraper] Playwright traceback:\n{traceback.format_exc()}")
 
     print(f"[scraper] Playwright failed ({pw_error}), falling back to httpx…")
 
