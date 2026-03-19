@@ -22,6 +22,8 @@ export interface PageMetrics {
   images_missing_alt_pct: number;
   meta_title?: string;
   meta_description?: string;
+  scrape_method: string;
+  content_quality_warning?: string;
 }
 
 export interface SectionAnalysis {

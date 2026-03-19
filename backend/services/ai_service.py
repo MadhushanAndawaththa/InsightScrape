@@ -14,8 +14,9 @@ from services.prompt_tracer import PromptTracer
 # Production: gemini-2.5-flash (best price-performance, superior reasoning)
 MODEL = "gemini-2.5-flash-lite"
 
-# Maximum chars of visible page text sent to the model (~3 000 tokens)
-_MAX_PAGE_CHARS = 12_000
+# Maximum chars of visible page text sent to the model (~7 500 tokens)
+# Gemini 2.5 Flash-Lite supports 1M tokens in — 30K chars is comfortable
+_MAX_PAGE_CHARS = 30_000
 
 _client = None
 
@@ -81,7 +82,17 @@ Return a single JSON object matching the provided schema with scores, findings, 
     if len(page_content) > _MAX_PAGE_CHARS:
         trimmed += "\n\n...[content truncated]"
 
-    user_prompt = f"""<context>
+    # Data quality note for thin / JS-rendered pages
+    quality_note = ""
+    if metrics.word_count < 300 or metrics.image_count == 0:
+        quality_note = """\n<data_quality_note>
+WARNING: The extracted content appears thin (low word count and/or zero images).
+This often happens when the page relies heavily on JavaScript rendering.
+Score CONSERVATIVELY — do not give high scores for categories that lack supporting evidence.
+If content appears incomplete, note this limitation in your findings.
+</data_quality_note>\n"""
+
+    user_prompt = f"""{quality_note}<context>
 ## Extracted Page Metrics (Deterministic — scraped from HTML)
 - Word Count: {metrics.word_count}
 - CTA Count: {metrics.cta_count}
@@ -125,6 +136,16 @@ Return the result as structured JSON matching the schema.
     except Exception as e:
         print(f"Error parsing JSON from raw LLM output: {e}\n{raw_text}")
         raise ValueError("Failed to parse stage 1 response")
+
+    # Override overall_score with a deterministic weighted average
+    weighted = round(
+        analysis_result.structure_score * 0.25
+        + analysis_result.messaging_score * 0.20
+        + analysis_result.cta_score * 0.20
+        + analysis_result.content_depth_score * 0.20
+        + analysis_result.ux_score * 0.15
+    )
+    analysis_result.overall_score = max(1, min(10, weighted))
 
     token_usage = {
         "prompt_token_count": response.usage_metadata.prompt_token_count,

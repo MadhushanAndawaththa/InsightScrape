@@ -15,6 +15,8 @@ class PageMetrics(BaseModel):
     images_missing_alt_pct: float
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
+    scrape_method: str = "httpx"
+    content_quality_warning: Optional[str] = None
 
 class SectionAnalysis(BaseModel):
     score: int = Field(ge=1, le=10, description="Score from 1 (worst) to 10 (best) for this category.")

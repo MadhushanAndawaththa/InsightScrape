@@ -356,7 +356,30 @@ export const AuditApp = () => {
             {/* ── Factual Metrics Grid ─────────────────────────── */}
             <section>
               <SectionHeader icon={BarChart3} title="Extracted Metrics" subtitle="Deterministic data — no AI involved" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-4">
+
+              {/* Scrape method badge */}
+              <div className="flex items-center gap-2 mt-3 mb-1">
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                  result.metrics.scrape_method === 'playwright'
+                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                }`}>
+                  {result.metrics.scrape_method === 'playwright' ? 'Full JS Rendering' : 'Static HTML'}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  via {result.metrics.scrape_method}
+                </span>
+              </div>
+
+              {/* Content quality warning */}
+              {result.metrics.content_quality_warning && (
+                <div className="flex items-start gap-2 p-3 mt-2 mb-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300">{result.metrics.content_quality_warning}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
                 <MetricCard icon={FileText} label="Words" value={result.metrics.word_count.toLocaleString()} />
                 <MetricCard icon={MousePointerClick} label="CTAs Found" value={result.metrics.cta_count} accent />
                 <MetricCard icon={Link2} label="Internal Links" value={result.metrics.internal_links} />
@@ -414,7 +437,7 @@ export const AuditApp = () => {
               <SectionHeader
                 icon={Sparkles}
                 title="AI-Generated Analysis"
-                subtitle="Powered by Gemini 2.0 Flash"
+                subtitle={`Powered by ${result.prompt_logs?.[0]?.model || 'Gemini'}`}
                 badge="AI"
               />
               <div className="mt-4 space-y-4">
@@ -515,7 +538,7 @@ export const AuditApp = () => {
 
       {/* ─── Footer ─────────────────────────────────────────── */}
       <footer className="border-t border-gray-200 dark:border-white/5 mt-16 py-6 text-center text-xs text-gray-400 dark:text-gray-600">
-        Built with FastAPI, React, Tailwind CSS and Gemini 2.0 Flash
+        Built with FastAPI, React, Tailwind CSS and Gemini AI
       </footer>
     </div>
   );

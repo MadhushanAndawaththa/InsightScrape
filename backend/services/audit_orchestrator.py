@@ -10,11 +10,11 @@ async def run_audit(url: str) -> AuditResult:
     tracer = PromptTracer()
 
     try:
-        html_content = await fetch_page(url)
+        html_content, scrape_method = await fetch_page(url)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to fetch page: {str(e)}")
 
-    metrics, visible_text = extract_metrics(html_content, url)
+    metrics, visible_text = extract_metrics(html_content, url, scrape_method)
 
     try:
         analysis = await analyze_page(metrics, visible_text, tracer)
