@@ -10,7 +10,9 @@ from models import PageMetrics, SEOAnalysis, Recommendation
 from services.prompt_tracer import PromptTracer
 
 # gemini-2.0-flash-lite: higher free-tier RPM (30 vs 15) and lower token cost
-MODEL = "gemini-2.0-flash-lite"
+# Testing: gemini-2.5-flash-lite (highest free-tier RPD, ~1500/day)
+# Production: gemini-2.5-flash (best price-performance, superior reasoning)
+MODEL = "gemini-2.5-flash-lite"
 
 # Maximum chars of visible page text sent to the model (~3 000 tokens)
 _MAX_PAGE_CHARS = 12_000

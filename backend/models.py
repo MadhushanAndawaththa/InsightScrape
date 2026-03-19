@@ -50,7 +50,7 @@ class PromptLog(BaseModel):
     raw_response: str
     parsed_response: str
     timestamp: str
-    model: str = "gemini-2.0-flash-lite"
+    model: str = "gemini-2.5-flash-lite"
     token_usage: Optional[Dict[str, int]] = None
 
 class AuditResult(BaseModel):
