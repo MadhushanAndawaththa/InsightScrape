@@ -278,6 +278,14 @@ class TestFullAuditResponse:
     def _make_section(self, score=5):
         return SectionAnalysis(score=score, findings="Test finding", evidence="Test evidence")
 
+    def _make_recs(self, n=3):
+        return [
+            Recommendation(priority=i+1, category="seo", title=f"Rec {i+1}",
+                description=f"Desc {i+1}", grounded_metric=f"Metric {i+1}",
+                action=f"Action {i+1}", expected_impact=f"Impact {i+1}")
+            for i in range(n)
+        ]
+
     def test_full_audit_response_valid(self):
         resp = FullAuditResponse(
             structure_score=7, messaging_score=6, cta_score=5,
@@ -287,14 +295,10 @@ class TestFullAuditResponse:
             cta_analysis=self._make_section(5),
             content_depth_analysis=self._make_section(4),
             ux_analysis=self._make_section(8),
-            recommendations=[
-                Recommendation(priority=1, category="seo", title="Fix H1",
-                    description="Missing H1", grounded_metric="h1: 0",
-                    action="Add H1 tag", expected_impact="Better SEO"),
-            ],
+            recommendations=self._make_recs(3),
         )
         assert resp.structure_score == 7
-        assert len(resp.recommendations) == 1
+        assert len(resp.recommendations) == 3
         assert resp.recommendations[0].priority == 1
 
     def test_full_audit_response_contains_both_parts(self):
@@ -307,18 +311,41 @@ class TestFullAuditResponse:
             cta_analysis=self._make_section(6),
             content_depth_analysis=self._make_section(5),
             ux_analysis=self._make_section(9),
-            recommendations=[
-                Recommendation(priority=1, category="seo", title="A",
-                    description="D", grounded_metric="M",
-                    action="Act", expected_impact="Impact"),
-                Recommendation(priority=2, category="ux", title="B",
-                    description="D2", grounded_metric="M2",
-                    action="Act2", expected_impact="Impact2"),
-            ],
+            recommendations=self._make_recs(5),
         )
         # Analysis fields
         assert resp.structure_score == 8
         assert resp.ux_analysis.score == 9
         # Recommendation fields
-        assert len(resp.recommendations) == 2
-        assert resp.recommendations[1].category == "ux"
+        assert len(resp.recommendations) == 5
+        assert resp.recommendations[0].category == "seo"
+
+    def test_full_audit_rejects_too_few_recommendations(self):
+        """Must have at least 3 recommendations."""
+        import pytest
+        with pytest.raises(Exception):
+            FullAuditResponse(
+                structure_score=7, messaging_score=6, cta_score=5,
+                content_depth_score=4, ux_score=8, overall_score=6,
+                structure_analysis=self._make_section(),
+                messaging_analysis=self._make_section(),
+                cta_analysis=self._make_section(),
+                content_depth_analysis=self._make_section(),
+                ux_analysis=self._make_section(),
+                recommendations=self._make_recs(2),
+            )
+
+    def test_full_audit_rejects_too_many_recommendations(self):
+        """Must have at most 5 recommendations."""
+        import pytest
+        with pytest.raises(Exception):
+            FullAuditResponse(
+                structure_score=7, messaging_score=6, cta_score=5,
+                content_depth_score=4, ux_score=8, overall_score=6,
+                structure_analysis=self._make_section(),
+                messaging_analysis=self._make_section(),
+                cta_analysis=self._make_section(),
+                content_depth_analysis=self._make_section(),
+                ux_analysis=self._make_section(),
+                recommendations=self._make_recs(6),
+            )

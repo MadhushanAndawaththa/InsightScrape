@@ -87,7 +87,7 @@ You are precise, analytical, and data-driven.
 10. Scores must be integers from 1 to 10.
 
 ## Recommendation Constraints
-11. Generate exactly 3 to 5 recommendations in the "recommendations" array.
+11. Generate 5 recommendations in the "recommendations" array. Only reduce to 4 if the page is near-perfect in one category, or 3 if the page excels in multiple areas. Default to 5.
 12. Every recommendation MUST be directly grounded in your analysis findings — never generic advice.
 13. Prioritize by impact: priority 1 = highest impact, must-fix; priority 2 = significant improvement; priority 3 = nice-to-have optimization.
 14. The "grounded_metric" field must cite the exact data point (e.g., "4 images missing alt text", "Meta title is 78 chars — exceeds 60-char ideal").
@@ -107,7 +107,7 @@ You are precise, analytical, and data-driven.
 <output_format>
 Return a single JSON object with:
 1. Scores and detailed analysis for each of the 5 categories (structure, messaging, CTAs, content depth, UX)
-2. A "recommendations" array with 3-5 prioritized, actionable recommendations grounded in your analysis
+2. A "recommendations" array with 5 prioritized, actionable recommendations grounded in your analysis (reduce to 4 or 3 only if the page truly excels)
 All in one structured response matching the provided schema.
 </output_format>"""
 
@@ -194,7 +194,7 @@ Perform a complete website audit in two parts:
 
 For each category, provide a score (1-10), findings grounded in specific metrics, and direct evidence.
 
-**PART 2 — Recommendations**: Based on your analysis above, generate 3-5 prioritized recommendations. Focus on the lowest-scoring categories first. Each recommendation must cite specific data and be the kind a web agency would include in a client audit report.
+**PART 2 — Recommendations**: Based on your analysis above, generate 5 prioritized recommendations (reduce to 4 or 3 only if the page truly excels in most categories). Focus on the lowest-scoring categories first. Each recommendation must cite specific data and be the kind a web agency would include in a client audit report.
 
 Return everything as a single structured JSON object matching the schema.
 </task>"""

@@ -220,15 +220,10 @@ Tests cover:
 1. **Create a new Web Service** on [render.com](https://render.com) linked to this repo.
 
 2. **Configure build settings:**
+   - **Environment:** `Docker`
    - **Root Directory:** `backend`
-   - **Build Command:**
-     ```bash
-     pip install -r requirements.txt && playwright install chromium && playwright install-deps
-     ```
-   - **Start Command:**
-     ```bash
-     uvicorn main:app --host 0.0.0.0 --port $PORT
-     ```
+
+   > The `Dockerfile` installs Chromium's system dependencies, Python packages, and the Playwright browser binary automatically — no manual build/start commands needed.
 
 3. **Set environment variables** in the Render dashboard (Settings → Environment):
    - `GEMINI_API_KEY` = your API key (set as **secret** — Render encrypts it at rest)
@@ -244,7 +239,10 @@ Tests cover:
    - **Build Command:** `npm run build`
    - **Output Directory:** `dist`
 
-3. **Set the API URL** — update the `API_BASE` in `frontend/src/api/audit.ts` to point to your Render backend URL (e.g., `https://insightscrape-api.onrender.com`).
+3. **Set environment variables** in the Vercel dashboard (Settings → Environment Variables):
+   - `VITE_API_URL` = `https://insightscrape.onrender.com/api`
+
+   > This is a **build-time** variable — Vite bakes it into the JS bundle during `npm run build`. No code changes needed.
 
 4. For production, restrict CORS in `backend/main.py`:
    ```python
