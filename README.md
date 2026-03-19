@@ -238,6 +238,9 @@ InsightScrape/
 │   │   └── test/                  # Vitest test files
 │   ├── package.json
 │   └── vite.config.ts
+├── prompt_logs/
+│   ├── example_audit_1.json       # Real audit log (gemini-2.5-flash-lite)
+│   └── example_audit_2.json       # Real audit log (gemini-2.5-flash)
 ├── .gitignore
 └── README.md
 ```
