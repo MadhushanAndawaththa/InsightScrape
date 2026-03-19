@@ -23,7 +23,8 @@
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#ai-design-decisions">AI Design</a> ·
-  <a href="#api-reference">API Reference</a> ·
+  <a href="#trade-offs">Trade-offs</a> ·
+  <a href="#what-id-improve-with-more-time">Improvements</a> ·
   <a href="#running-tests">Tests</a>
 </p>
 
@@ -67,7 +68,7 @@ Open **http://localhost:5173** — enter any URL and hit Audit.
 | 🕷️ | **Dual Scraping** | Playwright (JS rendering) with HTTPX fallback for maximum site compatibility |
 | 🎬 | **Rich Media Detection** | SVGs, `<video>`, YouTube/Vimeo embeds, `<canvas>`, CSS animations, Lottie, WebGL/3D |
 | 🔍 | **Technical SEO Signals** | Viewport meta, canonical, Open Graph, Twitter Card, JSON-LD structured data |
-| 🧠 | **Model Selection** | Choose between 4 Gemini models (Flash-Lite → Flash) via the UI |
+| 🧠 | **Model Selection** | Choose between 4 Gemini models via the UI (Flash-Lite, Flash, 3.1 Flash Lite, 3 Flash) |
 | 🛡️ | **Graceful Degradation** | If the AI fails, you still get all scraped metrics |
 | 🔎 | **AI Transparency** | Expandable prompt logs show exact system/user prompts and raw responses |
 | 📊 | **Deterministic Scoring** | Overall score computed server-side as a weighted average, not by the AI |
@@ -109,13 +110,12 @@ flowchart LR
 |-------|-----------|
 | **Backend** | Python 3.11 · FastAPI 0.135 · Pydantic 2.x · Uvicorn |
 | **Scraping** | Playwright 1.58 · HTTPX · BeautifulSoup4 |
-| **AI** | Google Gemini (gemini-2.5-flash-lite / flash / 2.0-flash) |
+| **AI** | Google Gemini (2.5 Flash Lite · 2.5 Flash · 3.1 Flash Lite · 3 Flash) |
 | **Frontend** | React 19 · TypeScript · Vite 8 · Tailwind CSS v4 |
 | **Deployment** | Render (Docker) · Vercel |
 | **Testing** | pytest · Vitest · React Testing Library |
 
-<details>
-<summary>Why a single AI request?</summary>
+### Why a Single AI Request?
 
 Previously, the tool made 2 sequential API calls (analysis → recommendations). Since Gemini models support large context windows (1M+ tokens), both tasks fit in a single request using a combined `FullAuditResponse` Pydantic schema. This:
 
@@ -124,14 +124,10 @@ Previously, the tool made 2 sequential API calls (analysis → recommendations).
 - **Reduces latency** — one round-trip instead of two
 
 The prompt uses XML-style tags (`<role>`, `<constraints>`, `<context>`, `<task>`) following Gemini's prompting best practices, and all prompts/responses are captured by a `PromptTracer` for full auditability.
-</details>
 
 ---
 
 ## AI Design Decisions
-
-<details>
-<summary>View all 10 design decisions</summary>
 
 | # | Decision | Rationale |
 |---|----------|-----------|
@@ -146,8 +142,6 @@ The prompt uses XML-style tags (`<role>`, `<constraints>`, `<context>`, `<task>`
 | 9 | **Expert Prompt Engineering** | Agency context (*"evaluating as a digital agency like EIGHT25MEDIA"*), a scored rubric (1–10), E-E-A-T signals, and meta-length analysis against ideal character ranges. |
 | 10 | **Graceful AI Failure** | If the AI errors (rate limit, timeout), the tool still returns all scraped metrics — partial but useful results instead of a blank page. |
 
-</details>
-
 ---
 
 ## Trade-offs
@@ -160,8 +154,9 @@ The prompt uses XML-style tags (`<role>`, `<constraints>`, `<context>`, `<task>`
 | **No Database** | Prompt logs and audit history are ephemeral per request. Reduces deployment complexity but loses historical comparison. |
 | **Free-Tier AI Models** | Limited to 20 RPD on most Gemini models. Single-request architecture mitigates this. |
 
-<details>
-<summary>What I'd improve with more time</summary>
+---
+
+## What I'd Improve With More Time
 
 - **Multi-Page Crawling** — Crawl full sitemaps with Celery/Redis workers instead of single-page analysis.
 - **Lighthouse Integration** — Blend AI insights with deterministic Core Web Vitals (LCP, CLS, INP) data.
@@ -170,7 +165,6 @@ The prompt uses XML-style tags (`<role>`, `<constraints>`, `<context>`, `<task>`
 - **CTA ML Classifier** — Replace heuristics with a fine-tuned model for more accurate CTA detection.
 - **Streaming AI Response** — Use Gemini's streaming API to show results progressively as they generate.
 - **Competitor Benchmarking** — Audit multiple URLs and generate a comparative scorecard.
-</details>
 
 ---
 

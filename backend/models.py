@@ -88,8 +88,8 @@ class PromptLog(BaseModel):
 AVAILABLE_MODELS = [
     {"id": "gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "tier": "Free (20 RPD)"},
     {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "tier": "Free (20 RPD)"},
-    {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "tier": "Free (20 RPD)"},
-    {"id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash Lite", "tier": "Free (20 RPD)"},
+    {"id": "gemini-3.1-flash-lite", "name": "Gemini 3.1 Flash Lite", "tier": "Free (500 RPD)"},
+    {"id": "gemini-3-flash", "name": "Gemini 3 Flash", "tier": "Free (20 RPD)"},
 ]
 
 class AuditResult(BaseModel):
