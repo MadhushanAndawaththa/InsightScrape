@@ -110,7 +110,7 @@ flowchart LR
 |-------|-----------|
 | **Backend** | Python 3.11 · FastAPI 0.135 · Pydantic 2.x · Uvicorn |
 | **Scraping** | Playwright 1.58 · HTTPX · BeautifulSoup4 |
-| **AI** | Google Gemini (2.5 Flash Lite · 2.5 Flash · 3.1 Flash Lite · 3 Flash) |
+| **AI** | Google Gemini (2.5 Flash Lite · 2.5 Flash · 3.1 Flash Lite Preview · 3 Flash Preview) |
 | **Frontend** | React 19 · TypeScript · Vite 8 · Tailwind CSS v4 |
 | **Deployment** | Render (Docker) · Vercel |
 | **Testing** | pytest · Vitest · React Testing Library |

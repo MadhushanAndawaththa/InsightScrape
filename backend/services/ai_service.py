@@ -10,7 +10,7 @@ from models import PageMetrics, SEOAnalysis, Recommendation, FullAuditResponse
 from services.prompt_tracer import PromptTracer
 
 # Default model: gemini-2.5-flash-lite (20 RPD, 10 RPM on free tier)
-# Available: gemini-2.5-flash (20 RPD), gemini-3.1-flash-lite (500 RPD), gemini-3-flash (20 RPD)
+# Available: gemini-2.5-flash (20 RPD), gemini-3.1-flash-lite-preview (500 RPD), gemini-3-flash-preview (20 RPD)
 MODEL = "gemini-2.5-flash-lite"
 
 # Maximum chars of visible page text sent to the model (~7 500 tokens)
