@@ -139,8 +139,10 @@ The prompt uses XML-style tags (`<role>`, `<constraints>`, `<context>`, `<task>`
 | 6 | **Deterministic Overall Score** | Computed as a weighted average server-side, never by the AI. Ensures auditability and cross-run consistency. |
 | 7 | **Rich Visual Media Detection** | Detects SVGs, CSS animations, Lottie, `<canvas>`, and WebGL/3D *before* DOM cleanup so nothing is missed. |
 | 8 | **Technical SEO Extraction** | Viewport meta, canonical URLs, robots directives, Open Graph, Twitter Cards, and JSON-LD are all extracted and fed to the AI. |
-| 9 | **Expert Prompt Engineering** | Agency-perspective role framing, a scored rubric (1–10), E-E-A-T signals, and meta-length analysis against ideal character ranges. |
+| 9 | **Expert Prompt Engineering** | Agency-perspective role framing, a scored rubric (1–10), E-E-A-T signals, few-shot good/bad examples, and meta-length analysis against ideal character ranges. |
 | 10 | **Graceful AI Failure** | If the AI errors (rate limit, timeout), the tool still returns all scraped metrics — partial but useful results instead of a blank page. |
+| 11 | **Page Intent Classification** | The AI first classifies the page type (e.g., SaaS landing page, blog, e-commerce) and tailors scoring expectations accordingly — a blog needs fewer CTAs than a landing page. |
+| 12 | **Anti-Hallucination Guards** | If scraped metrics say a feature is MISSING, the AI treats it as definitively absent. No duplicate recommendations allowed. Professional consultant tone enforced. |
 
 ---
 
@@ -287,7 +289,8 @@ InsightScrape/
 │   └── vite.config.ts
 ├── prompt_logs/
 │   ├── example_audit_1.json       # Real audit log — gemini-2.5-flash-lite
-│   └── example_audit_2.json       # Real audit log — gemini-2.5-flash
+│   ├── example_audit_2.json       # Real audit log — gemini-2.5-flash
+│   └── example_audit_3.json       # Real audit log — improved prompt v2
 ├── .gitignore
 └── README.md
 ```
