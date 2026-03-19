@@ -15,6 +15,20 @@ class PageMetrics(BaseModel):
     images_missing_alt_pct: float
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
+    meta_title_length: Optional[int] = None
+    meta_description_length: Optional[int] = None
+    has_viewport_meta: bool = False
+    has_canonical: bool = False
+    has_robots_meta: bool = False
+    has_open_graph: bool = False
+    has_twitter_card: bool = False
+    structured_data_types: List[str] = []
+    svg_count: int = 0
+    has_video: bool = False
+    has_canvas: bool = False
+    has_css_animations: bool = False
+    has_lottie: bool = False
+    has_webgl_or_3d: bool = False
     scrape_method: str = "httpx"
     content_quality_warning: Optional[str] = None
 

@@ -1,4 +1,6 @@
 import asyncio
+import json
+import re
 import traceback
 import httpx
 from bs4 import BeautifulSoup
@@ -191,10 +193,87 @@ def determine_if_cta(element) -> bool:
 
 # ─── Metrics Extraction ──────────────────────────────────────
 
+# Patterns for detecting CSS animations/transitions in style blocks
+_CSS_ANIMATION_RE = re.compile(
+    r'@keyframes|animation\s*:|transition\s*:|transform\s*:|animate',
+    re.IGNORECASE,
+)
+
+# Patterns for detecting Lottie animation libraries
+_LOTTIE_RE = re.compile(
+    r'lottie-player|lottie-web|@lottiefiles|bodymovin',
+    re.IGNORECASE,
+)
+
+# Patterns for detecting WebGL / 3D libraries
+_WEBGL_3D_RE = re.compile(
+    r'three\.js|threejs|webgl|babylon\.js|aframe|spline-viewer|model-viewer',
+    re.IGNORECASE,
+)
+
+
 def extract_metrics(html: str, base_url: str, scrape_method: str = "httpx") -> Tuple[PageMetrics, str]:
     soup = BeautifulSoup(html, "html.parser")
 
-    # Remove scripts, styles, etc.
+    # ── Rich media detection (BEFORE removing tags) ──────────
+    # SVG count — count before removing
+    svg_count = len(soup.find_all("svg"))
+
+    # Video detection — <video> tags or common video embeds
+    has_video = bool(
+        soup.find("video")
+        or soup.find("iframe", src=re.compile(r'youtube|vimeo|wistia|vidyard', re.IGNORECASE))
+    )
+
+    # Canvas detection
+    has_canvas = bool(soup.find("canvas"))
+
+    # CSS animations — check inline <style> tags
+    style_blocks = soup.find_all("style")
+    style_text = " ".join(s.get_text() for s in style_blocks)
+    has_css_animations = bool(_CSS_ANIMATION_RE.search(style_text))
+
+    # Also check inline style attributes for animations
+    if not has_css_animations:
+        for tag in soup.find_all(attrs={"style": True}):
+            if _CSS_ANIMATION_RE.search(tag["style"]):
+                has_css_animations = True
+                break
+
+    # Lottie — check for lottie-player custom elements or script imports
+    full_html_lower = html.lower() if html else ""
+    has_lottie = bool(_LOTTIE_RE.search(full_html_lower))
+
+    # WebGL / 3D — check for Three.js, Babylon, A-Frame, Spline, model-viewer
+    has_webgl_or_3d = bool(_WEBGL_3D_RE.search(full_html_lower))
+
+    # ── Structured data (JSON-LD and microdata) ──────────────
+    structured_data_types: list[str] = []
+    for script_tag in soup.find_all("script", type="application/ld+json"):
+        try:
+            ld = json.loads(script_tag.string or "")
+            if isinstance(ld, dict) and "@type" in ld:
+                structured_data_types.append(ld["@type"])
+            elif isinstance(ld, list):
+                for item in ld:
+                    if isinstance(item, dict) and "@type" in item:
+                        structured_data_types.append(item["@type"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # ── Technical SEO meta tags ──────────────────────────────
+    has_viewport_meta = bool(soup.find("meta", attrs={"name": "viewport"}))
+    has_canonical = bool(
+        soup.find("link", rel="canonical")
+        or soup.find("link", attrs={"rel": "canonical"})
+    )
+    has_robots_meta = bool(soup.find("meta", attrs={"name": "robots"}))
+    has_open_graph = bool(soup.find("meta", property=re.compile(r'^og:')))
+    has_twitter_card = bool(
+        soup.find("meta", attrs={"name": re.compile(r'^twitter:', re.IGNORECASE)})
+    )
+
+    # ── Remove non-content tags for text extraction ──────────
     for tag in soup(["script", "style", "noscript", "svg", "path"]):
         tag.extract()
 
@@ -221,6 +300,9 @@ def extract_metrics(html: str, base_url: str, scrape_method: str = "httpx") -> T
 
     meta_desc_tag = soup.find("meta", attrs={"name": "description"}) or soup.find("meta", property="og:description")
     meta_description = meta_desc_tag.get("content") if meta_desc_tag else None
+
+    meta_title_length = len(meta_title) if meta_title else None
+    meta_description_length = len(meta_description) if meta_description else None
 
     # Links & CTAs — de-duplicate by tracking seen elements
     base_domain = urlparse(base_url).netloc
@@ -262,9 +344,12 @@ def extract_metrics(html: str, base_url: str, scrape_method: str = "httpx") -> T
 
     images_missing_alt_pct = (images_missing_alt_count / image_count * 100) if image_count > 0 else 0.0
 
+    # Determine if the page has rich visual content beyond traditional images
+    has_rich_visual_media = has_video or has_canvas or svg_count > 0 or has_lottie or has_webgl_or_3d
+
     # Content quality warning
     content_quality_warning = None
-    if scrape_method == "httpx" and (word_count < 200 or image_count == 0):
+    if scrape_method == "httpx" and (word_count < 200 or (image_count == 0 and not has_rich_visual_media)):
         content_quality_warning = (
             "Limited content extracted — this page likely uses JavaScript rendering. "
             "Some text, images, and interactive elements may not have been captured. "
@@ -289,6 +374,20 @@ def extract_metrics(html: str, base_url: str, scrape_method: str = "httpx") -> T
         images_missing_alt_pct=round(images_missing_alt_pct, 2),
         meta_title=meta_title,
         meta_description=meta_description,
+        meta_title_length=meta_title_length,
+        meta_description_length=meta_description_length,
+        has_viewport_meta=has_viewport_meta,
+        has_canonical=has_canonical,
+        has_robots_meta=has_robots_meta,
+        has_open_graph=has_open_graph,
+        has_twitter_card=has_twitter_card,
+        structured_data_types=structured_data_types,
+        svg_count=svg_count,
+        has_video=has_video,
+        has_canvas=has_canvas,
+        has_css_animations=has_css_animations,
+        has_lottie=has_lottie,
+        has_webgl_or_3d=has_webgl_or_3d,
         scrape_method=scrape_method,
         content_quality_warning=content_quality_warning,
     )

@@ -29,6 +29,20 @@ export interface PageMetrics {
   images_missing_alt_pct: number;
   meta_title?: string;
   meta_description?: string;
+  meta_title_length?: number;
+  meta_description_length?: number;
+  has_viewport_meta: boolean;
+  has_canonical: boolean;
+  has_robots_meta: boolean;
+  has_open_graph: boolean;
+  has_twitter_card: boolean;
+  structured_data_types: string[];
+  svg_count: number;
+  has_video: boolean;
+  has_canvas: boolean;
+  has_css_animations: boolean;
+  has_lottie: boolean;
+  has_webgl_or_3d: boolean;
   scrape_method: string;
   content_quality_warning?: string;
 }

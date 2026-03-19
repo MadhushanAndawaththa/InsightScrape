@@ -4,7 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import {
   Search, Sun, Moon, Globe, Clock, FileText, Link2, Image, MousePointerClick,
   AlertTriangle, ChevronDown, Sparkles, Shield, BarChart3, Zap, Eye, Type,
-  ExternalLink, ArrowRight, Terminal, Hash, RefreshCw, Cpu,
+  ExternalLink, ArrowRight, Terminal, Hash, RefreshCw, Cpu, Video, Layers,
+  Code2, Activity, CheckCircle2, XCircle,
 } from 'lucide-react';
 
 /* ───────────────────────── Helpers ───────────────────────── */
@@ -492,15 +493,72 @@ export const AuditApp = () => {
                   warn={result.metrics.images_missing_alt_pct > 0} />
               </div>
 
+              {/* Rich Visual Media */}
+              {(result.metrics.svg_count > 0 || result.metrics.has_video || result.metrics.has_canvas || result.metrics.has_css_animations || result.metrics.has_lottie || result.metrics.has_webgl_or_3d) && (
+                <div className="mt-3">
+                  <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 ml-1">Rich Visual Media</div>
+                  <div className="flex flex-wrap gap-2">
+                    {result.metrics.svg_count > 0 && <MediaBadge label={`${result.metrics.svg_count} SVGs`} icon={Layers} />}
+                    {result.metrics.has_video && <MediaBadge label="Video" icon={Video} />}
+                    {result.metrics.has_canvas && <MediaBadge label="Canvas" icon={Code2} />}
+                    {result.metrics.has_css_animations && <MediaBadge label="CSS Animations" icon={Activity} />}
+                    {result.metrics.has_lottie && <MediaBadge label="Lottie" icon={Sparkles} />}
+                    {result.metrics.has_webgl_or_3d && <MediaBadge label="WebGL / 3D" icon={Layers} />}
+                  </div>
+                </div>
+              )}
+
               {/* Meta info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 p-4">
-                  <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Meta Title</div>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Meta Title</div>
+                    {result.metrics.meta_title_length != null && (
+                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full ${
+                        result.metrics.meta_title_length >= 50 && result.metrics.meta_title_length <= 60
+                          ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                          : result.metrics.meta_title_length > 60
+                            ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                            : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                      }`}>
+                        {result.metrics.meta_title_length} chars
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm font-medium truncate">{result.metrics.meta_title || <span className="text-rose-500">Missing</span>}</div>
                 </div>
                 <div className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 p-4">
-                  <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Meta Description</div>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Meta Description</div>
+                    {result.metrics.meta_description_length != null && (
+                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full ${
+                        result.metrics.meta_description_length >= 120 && result.metrics.meta_description_length <= 160
+                          ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                          : result.metrics.meta_description_length > 160
+                            ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                            : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                      }`}>
+                        {result.metrics.meta_description_length} chars
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm font-medium line-clamp-2">{result.metrics.meta_description || <span className="text-rose-500">Missing</span>}</div>
+                </div>
+              </div>
+
+              {/* Technical SEO Signals */}
+              <div className="mt-3">
+                <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 ml-1">Technical SEO Signals</div>
+                <div className="flex flex-wrap gap-2">
+                  <SEOSignalBadge label="Viewport" present={result.metrics.has_viewport_meta} />
+                  <SEOSignalBadge label="Canonical" present={result.metrics.has_canonical} />
+                  <SEOSignalBadge label="Open Graph" present={result.metrics.has_open_graph} />
+                  <SEOSignalBadge label="Twitter Card" present={result.metrics.has_twitter_card} />
+                  {result.metrics.structured_data_types.length > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                      <CheckCircle2 className="w-3 h-3" /> Schema: {result.metrics.structured_data_types.join(', ')}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -621,11 +679,7 @@ export const AuditApp = () => {
                         </div>
                         <div className="rounded-lg bg-black/50 p-3 space-y-1">
                           <div className="text-gray-500 text-[10px] uppercase tracking-widest">User Prompt → {log.model}</div>
-                          <div className="text-amber-300/90 whitespace-pre-wrap leading-relaxed break-all">
-                            {log.user_prompt.length > 1500
-                              ? log.user_prompt.substring(0, 1500) + '\n\n...[TRUNCATED IN UI — full prompt available in API response]...'
-                              : log.user_prompt}
-                          </div>
+                          <ExpandablePrompt text={log.user_prompt} />
                         </div>
                         <div className="rounded-lg bg-black/50 p-3 space-y-1">
                           <div className="text-gray-500 text-[10px] uppercase tracking-widest">Raw JSON Output</div>
@@ -651,6 +705,26 @@ export const AuditApp = () => {
 };
 
 /* ═══════════════════ SUB-COMPONENTS ═════════════════════════ */
+
+const ExpandablePrompt = ({ text }: { text: string }) => {
+  const [expanded, setExpanded] = useState(false);
+  const PREVIEW_LEN = 1500;
+  const isLong = text.length > PREVIEW_LEN;
+
+  return (
+    <div className="text-amber-300/90 whitespace-pre-wrap leading-relaxed break-all">
+      {isLong && !expanded ? text.substring(0, PREVIEW_LEN) : text}
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="block mt-2 text-[11px] font-sans font-semibold text-violet-400 hover:text-violet-300 transition-colors"
+        >
+          {expanded ? '▲ Collapse' : `▼ Show full prompt (${text.length.toLocaleString()} chars)`}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const SectionHeader = ({ icon: Icon, title, subtitle, badge }: {
   icon: React.ComponentType<{ className?: string }>;
@@ -725,4 +799,23 @@ const AnalysisCard = ({ label, icon: Icon, analysis }: {
       </div>
     </div>
   </div>
+);
+
+const MediaBadge = ({ label, icon: Icon }: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) => (
+  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/20 text-violet-700 dark:text-violet-300">
+    <Icon className="w-3 h-3" /> {label}
+  </span>
+);
+
+const SEOSignalBadge = ({ label, present }: { label: string; present: boolean }) => (
+  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${
+    present
+      ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+      : 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300'
+  }`}>
+    {present ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />} {label}
+  </span>
 );

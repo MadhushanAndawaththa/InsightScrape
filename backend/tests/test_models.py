@@ -181,3 +181,92 @@ class TestAuditResult:
         )
         assert result.url == "https://test.com"
         assert result.audit_duration_ms == 1000
+
+    def test_optional_ai_error(self):
+        result = AuditResult(
+            url="https://test.com",
+            metrics=PageMetrics(
+                word_count=100,
+                headings_count={"h1": 1, "h2": 0, "h3": 0, "h4": 0, "h5": 0, "h6": 0},
+                heading_hierarchy=[],
+                cta_count=0, internal_links=0, external_links=0,
+                image_count=0, images_missing_alt_count=0,
+                images_decorative_alt_count=0, images_missing_alt_pct=0.0,
+            ),
+            prompt_logs=[],
+            audit_duration_ms=500,
+            ai_error="Rate limited",
+        )
+        assert result.analysis is None
+        assert result.ai_error == "Rate limited"
+
+
+class TestPageMetricsRichMedia:
+    """Tests for the rich media and technical SEO fields."""
+
+    def test_rich_media_defaults(self):
+        m = PageMetrics(
+            word_count=100,
+            headings_count={"h1": 1, "h2": 0, "h3": 0, "h4": 0, "h5": 0, "h6": 0},
+            heading_hierarchy=[],
+            cta_count=0, internal_links=0, external_links=0,
+            image_count=0, images_missing_alt_count=0,
+            images_decorative_alt_count=0, images_missing_alt_pct=0.0,
+        )
+        assert m.svg_count == 0
+        assert m.has_video is False
+        assert m.has_canvas is False
+        assert m.has_css_animations is False
+        assert m.has_lottie is False
+        assert m.has_webgl_or_3d is False
+        assert m.structured_data_types == []
+        assert m.has_viewport_meta is False
+        assert m.has_canonical is False
+        assert m.has_open_graph is False
+        assert m.has_twitter_card is False
+        assert m.meta_title_length is None
+        assert m.meta_description_length is None
+
+    def test_rich_media_set_values(self):
+        m = PageMetrics(
+            word_count=500,
+            headings_count={"h1": 1, "h2": 2, "h3": 0, "h4": 0, "h5": 0, "h6": 0},
+            heading_hierarchy=[("H1", "Title")],
+            cta_count=3, internal_links=10, external_links=2,
+            image_count=5, images_missing_alt_count=1,
+            images_decorative_alt_count=0, images_missing_alt_pct=20.0,
+            svg_count=4,
+            has_video=True,
+            has_canvas=True,
+            has_css_animations=True,
+            has_lottie=True,
+            has_webgl_or_3d=True,
+            has_viewport_meta=True,
+            has_canonical=True,
+            has_open_graph=True,
+            has_twitter_card=True,
+            structured_data_types=["Organization", "WebPage"],
+            meta_title_length=55,
+            meta_description_length=140,
+        )
+        assert m.svg_count == 4
+        assert m.has_video is True
+        assert m.structured_data_types == ["Organization", "WebPage"]
+        assert m.meta_title_length == 55
+
+    def test_rich_media_roundtrip(self):
+        m = PageMetrics(
+            word_count=100,
+            headings_count={"h1": 1, "h2": 0, "h3": 0, "h4": 0, "h5": 0, "h6": 0},
+            heading_hierarchy=[],
+            cta_count=0, internal_links=0, external_links=0,
+            image_count=0, images_missing_alt_count=0,
+            images_decorative_alt_count=0, images_missing_alt_pct=0.0,
+            svg_count=3, has_video=True, has_css_animations=True,
+            structured_data_types=["Article"],
+        )
+        data = m.model_dump()
+        m2 = PageMetrics(**data)
+        assert m2.svg_count == 3
+        assert m2.has_video is True
+        assert m2.structured_data_types == ["Article"]

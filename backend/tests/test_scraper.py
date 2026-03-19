@@ -250,3 +250,145 @@ class TestEdgeCases:
         metrics, _ = extract_metrics(html, "https://test.com", "playwright")
         assert metrics.internal_links == 1
         assert metrics.external_links == 0
+
+
+# ═══════════════════ Rich Media Detection ═════════════════════
+
+
+class TestRichMediaDetection:
+    def test_svg_counted_before_removal(self):
+        html = """<html><body>
+            <svg width="100" height="100"><circle cx="50" cy="50" r="40"/></svg>
+            <svg width="50" height="50"><rect width="50" height="50"/></svg>
+            <p>Content here</p>
+        </body></html>"""
+        metrics, visible_text = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.svg_count == 2
+        # SVG content should NOT be in visible text (stripped for readability)
+        assert "circle" not in visible_text.lower()
+
+    def test_video_tag_detected(self):
+        html = '<html><body><video src="intro.mp4" controls></video><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_video is True
+
+    def test_youtube_iframe_detected_as_video(self):
+        html = '<html><body><iframe src="https://www.youtube.com/embed/abc123"></iframe><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_video is True
+
+    def test_vimeo_iframe_detected_as_video(self):
+        html = '<html><body><iframe src="https://player.vimeo.com/video/12345"></iframe><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_video is True
+
+    def test_no_video_when_absent(self):
+        metrics, _ = extract_metrics(SAMPLE_HTML, "https://test.com", "playwright")
+        assert metrics.has_video is False
+
+    def test_canvas_detected(self):
+        html = '<html><body><canvas id="myCanvas" width="400" height="300"></canvas><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_canvas is True
+
+    def test_no_canvas_when_absent(self):
+        metrics, _ = extract_metrics(SAMPLE_HTML, "https://test.com", "playwright")
+        assert metrics.has_canvas is False
+
+    def test_css_keyframes_detected(self):
+        html = """<html><head><style>
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            .hero { animation: fadeIn 1s; }
+        </style></head><body><p>Content</p></body></html>"""
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_css_animations is True
+
+    def test_css_transition_detected(self):
+        html = '<html><body><div style="transition: all 0.3s ease">Content</div></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_css_animations is True
+
+    def test_lottie_detected(self):
+        html = '<html><body><lottie-player src="anim.json" autoplay loop></lottie-player><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_lottie is True
+
+    def test_threejs_detected(self):
+        html = '<html><body><script src="https://cdn.example.com/three.js"></script><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_webgl_or_3d is True
+
+    def test_no_rich_media_in_plain_page(self):
+        html = "<html><body><p>Plain text page</p></body></html>"
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.svg_count == 0
+        assert metrics.has_video is False
+        assert metrics.has_canvas is False
+        assert metrics.has_css_animations is False
+        assert metrics.has_lottie is False
+        assert metrics.has_webgl_or_3d is False
+
+
+# ═══════════════════ Technical SEO Detection ══════════════════
+
+
+class TestTechnicalSEODetection:
+    def test_viewport_meta_detected(self):
+        html = '<html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_viewport_meta is True
+
+    def test_viewport_meta_missing(self):
+        html = "<html><head></head><body><p>Content</p></body></html>"
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_viewport_meta is False
+
+    def test_canonical_detected(self):
+        html = '<html><head><link rel="canonical" href="https://test.com/page"></head><body><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_canonical is True
+
+    def test_open_graph_detected(self):
+        html = '<html><head><meta property="og:title" content="My Page"><meta property="og:type" content="website"></head><body><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_open_graph is True
+
+    def test_twitter_card_detected(self):
+        html = '<html><head><meta name="twitter:card" content="summary_large_image"></head><body><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.has_twitter_card is True
+
+    def test_structured_data_json_ld(self):
+        html = """<html><head>
+            <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Test"}</script>
+        </head><body><p>Content</p></body></html>"""
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert "Organization" in metrics.structured_data_types
+
+    def test_structured_data_multiple_types(self):
+        html = """<html><head>
+            <script type="application/ld+json">[{"@context":"https://schema.org","@type":"WebPage"},{"@type":"Organization","name":"Test"}]</script>
+        </head><body><p>Content</p></body></html>"""
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert "WebPage" in metrics.structured_data_types
+        assert "Organization" in metrics.structured_data_types
+
+    def test_meta_title_length_tracked(self):
+        html = '<html><head><title>Hello World</title></head><body><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.meta_title_length == 11
+
+    def test_meta_description_length_tracked(self):
+        html = '<html><head><meta name="description" content="A short description"></head><body><p>Content</p></body></html>'
+        metrics, _ = extract_metrics(html, "https://test.com", "playwright")
+        assert metrics.meta_description_length == 19
+
+    def test_content_quality_warning_not_triggered_with_svgs(self):
+        """Pages with SVGs but no images should NOT get the 'limited content' warning
+        when word count is above 200 (only the image check should be suppressed)."""
+        html = """<html><body>
+            <svg width="100" height="100"><circle cx="50" cy="50" r="40"/></svg>
+            <p>""" + " word" * 250 + """</p>
+        </body></html>"""
+        metrics, _ = extract_metrics(html, "https://test.com", "httpx")
+        assert metrics.content_quality_warning is None
