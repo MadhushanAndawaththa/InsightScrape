@@ -59,6 +59,21 @@ class Recommendation(BaseModel):
     action: str = Field(description="Specific, implementable fix — not vague advice.")
     expected_impact: str = Field(description="Concrete expected outcome of implementing the action.")
 
+class FullAuditResponse(BaseModel):
+    """Combined schema for the single-pass AI audit — analysis + recommendations in one call."""
+    structure_score: int = Field(ge=1, le=10, description="Score for HTML structure, heading hierarchy, and technical SEO.")
+    messaging_score: int = Field(ge=1, le=10, description="Score for clarity, value proposition, and brand messaging.")
+    cta_score: int = Field(ge=1, le=10, description="Score for quality, placement, and persuasiveness of calls to action.")
+    content_depth_score: int = Field(ge=1, le=10, description="Score for content depth, expertise, and topical coverage.")
+    ux_score: int = Field(ge=1, le=10, description="Score for user experience signals inferred from page structure and content.")
+    overall_score: int = Field(ge=1, le=10, description="Weighted overall score across all categories.")
+    structure_analysis: SectionAnalysis
+    messaging_analysis: SectionAnalysis
+    cta_analysis: SectionAnalysis
+    content_depth_analysis: SectionAnalysis
+    ux_analysis: SectionAnalysis
+    recommendations: List[Recommendation] = Field(description="3 to 5 prioritized, actionable recommendations grounded in the analysis above.")
+
 class PromptLog(BaseModel):
     stage: str
     system_prompt: str

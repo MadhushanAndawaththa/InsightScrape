@@ -93,8 +93,8 @@ const LoadingState = ({ step }: { step: number }) => {
   const steps = [
     { label: 'Fetching page content...', icon: Globe },
     { label: 'Extracting metrics...', icon: BarChart3 },
-    { label: 'Running AI analysis (Stage 1)...', icon: Sparkles },
-    { label: 'Generating recommendations (Stage 2)...', icon: Zap },
+    { label: 'Running AI audit analysis...', icon: Sparkles },
+    { label: 'Finalizing results...', icon: Zap },
   ];
 
   return (

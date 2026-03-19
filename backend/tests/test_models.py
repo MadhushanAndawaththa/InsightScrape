@@ -1,7 +1,7 @@
 """Tests for the models module — Pydantic model validation."""
 
 import pytest
-from models import PageMetrics, SectionAnalysis, SEOAnalysis, Recommendation, PromptLog, AuditResult
+from models import PageMetrics, SectionAnalysis, SEOAnalysis, Recommendation, PromptLog, AuditResult, FullAuditResponse
 
 
 class TestPageMetrics:
@@ -270,3 +270,55 @@ class TestPageMetricsRichMedia:
         assert m2.svg_count == 3
         assert m2.has_video is True
         assert m2.structured_data_types == ["Article"]
+
+
+class TestFullAuditResponse:
+    """Tests for the combined analysis + recommendations model."""
+
+    def _make_section(self, score=5):
+        return SectionAnalysis(score=score, findings="Test finding", evidence="Test evidence")
+
+    def test_full_audit_response_valid(self):
+        resp = FullAuditResponse(
+            structure_score=7, messaging_score=6, cta_score=5,
+            content_depth_score=4, ux_score=8, overall_score=6,
+            structure_analysis=self._make_section(7),
+            messaging_analysis=self._make_section(6),
+            cta_analysis=self._make_section(5),
+            content_depth_analysis=self._make_section(4),
+            ux_analysis=self._make_section(8),
+            recommendations=[
+                Recommendation(priority=1, category="seo", title="Fix H1",
+                    description="Missing H1", grounded_metric="h1: 0",
+                    action="Add H1 tag", expected_impact="Better SEO"),
+            ],
+        )
+        assert resp.structure_score == 7
+        assert len(resp.recommendations) == 1
+        assert resp.recommendations[0].priority == 1
+
+    def test_full_audit_response_contains_both_parts(self):
+        """The combined model should carry analysis scores AND recommendations."""
+        resp = FullAuditResponse(
+            structure_score=8, messaging_score=7, cta_score=6,
+            content_depth_score=5, ux_score=9, overall_score=7,
+            structure_analysis=self._make_section(8),
+            messaging_analysis=self._make_section(7),
+            cta_analysis=self._make_section(6),
+            content_depth_analysis=self._make_section(5),
+            ux_analysis=self._make_section(9),
+            recommendations=[
+                Recommendation(priority=1, category="seo", title="A",
+                    description="D", grounded_metric="M",
+                    action="Act", expected_impact="Impact"),
+                Recommendation(priority=2, category="ux", title="B",
+                    description="D2", grounded_metric="M2",
+                    action="Act2", expected_impact="Impact2"),
+            ],
+        )
+        # Analysis fields
+        assert resp.structure_score == 8
+        assert resp.ux_analysis.score == 9
+        # Recommendation fields
+        assert len(resp.recommendations) == 2
+        assert resp.recommendations[1].category == "ux"

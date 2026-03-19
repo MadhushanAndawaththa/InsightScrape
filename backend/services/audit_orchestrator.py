@@ -1,7 +1,7 @@
 import time
 from models import AuditResult
 from services.scraper import fetch_page, extract_metrics
-from services.ai_service import analyze_page, recommend_actions
+from services.ai_service import run_audit_analysis
 from services.prompt_tracer import PromptTracer
 from fastapi import HTTPException
 
@@ -21,18 +21,10 @@ async def run_audit(url: str, model: str = "gemini-2.5-flash-lite") -> AuditResu
     ai_error = None
 
     try:
-        analysis = await analyze_page(metrics, visible_text, tracer, model=model)
+        analysis, recommendations = await run_audit_analysis(metrics, visible_text, tracer, model=model)
     except Exception as e:
-        ai_error = f"AI Analysis failed: {str(e)}"
+        ai_error = f"AI analysis failed: {str(e)}"
         print(f"[orchestrator] {ai_error}")
-
-    if analysis:
-        try:
-            recommendations = await recommend_actions(metrics, analysis, tracer, model=model)
-            recommendations = sorted(recommendations, key=lambda x: x.priority)
-        except Exception as e:
-            ai_error = f"AI Recommendations failed: {str(e)}"
-            print(f"[orchestrator] {ai_error}")
 
     duration_ms = int((time.time() - start_time) * 1000)
 

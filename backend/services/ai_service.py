@@ -2,11 +2,11 @@ import os
 import json
 import time
 import asyncio
-from typing import List
+from typing import List, Tuple
 from google import genai
 from google.genai import types
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
-from models import PageMetrics, SEOAnalysis, Recommendation
+from models import PageMetrics, SEOAnalysis, Recommendation, FullAuditResponse
 from services.prompt_tracer import PromptTracer
 
 # gemini-2.0-flash-lite: higher free-tier RPM (30 vs 15) and lower token cost
@@ -50,15 +50,21 @@ def _generate_with_retry(model: str, contents: str, config: types.GenerateConten
             raise
 
 
-async def analyze_page(metrics: PageMetrics, page_content: str, tracer: PromptTracer, *, model: str = MODEL) -> SEOAnalysis:
-    """Stage 1 — Structured analysis of the scraped page.
-    
+async def run_audit_analysis(metrics: PageMetrics, page_content: str, tracer: PromptTracer, *, model: str = MODEL) -> Tuple[SEOAnalysis, List[Recommendation]]:
+    """Single-pass AI audit — analysis + recommendations in one Gemini call.
+
+    Combines what was previously two sequential API calls into one, halving
+    the request count while leveraging Gemini's large context window.
+    The model performs the analysis first, then generates recommendations
+    grounded in its own analysis — all within a single structured output.
+
     Prompt engineering follows Gemini best practices:
     - XML-style tags to separate role, context, constraints, and task
     - Metrics-first layout: facts before content so the model anchors on data
     - Rich media awareness: sites can be visually rich via SVGs, video, animations, 3D
     - Technical SEO signals: viewport, canonical, Open Graph, structured data
-    - Low temperature (0.2) for deterministic, fact-grounded scoring
+    - Combined scoring rubric + recommendation constraints in one system prompt
+    - Low temperature (0.2) for deterministic, fact-grounded output
     """
 
     system_prompt = """<role>
@@ -68,6 +74,7 @@ You are precise, analytical, and data-driven.
 </role>
 
 <constraints>
+## Analysis Constraints
 1. Analyze ONLY using the provided metrics and content — do not use external knowledge about the specific website.
 2. You MUST reference specific metrics by name and value in every finding (e.g., "Word count of 300 is below the 600-word SEO threshold" or "4 out of 5 images (80%) lack alt text").
 3. Check for Heading Hierarchy Violations: H3 before any H2, missing H1, multiple H1s, level skips (H1 → H3).
@@ -78,6 +85,15 @@ You are precise, analytical, and data-driven.
 8. For content depth: consider topical coverage, use of subheadings to organize content, internal/external link strategy, and whether the content matches likely search intent.
 9. Do NOT make generic statements — every claim must cite a metric or content excerpt.
 10. Scores must be integers from 1 to 10.
+
+## Recommendation Constraints
+11. Generate exactly 3 to 5 recommendations in the "recommendations" array.
+12. Every recommendation MUST be directly grounded in your analysis findings — never generic advice.
+13. Prioritize by impact: priority 1 = highest impact, must-fix; priority 2 = significant improvement; priority 3 = nice-to-have optimization.
+14. The "grounded_metric" field must cite the exact data point (e.g., "4 images missing alt text", "Meta title is 78 chars — exceeds 60-char ideal").
+15. The "action" field must be a specific, implementable step — not vague advice.
+16. The "expected_impact" field must describe the concrete expected outcome.
+17. Focus recommendations on the lowest-scoring categories first.
 </constraints>
 
 <scoring_rubric>
@@ -89,7 +105,10 @@ You are precise, analytical, and data-driven.
 </scoring_rubric>
 
 <output_format>
-Return a single JSON object matching the provided schema with scores, findings, and evidence for each category.
+Return a single JSON object with:
+1. Scores and detailed analysis for each of the 5 categories (structure, messaging, CTAs, content depth, UX)
+2. A "recommendations" array with 3-5 prioritized, actionable recommendations grounded in your analysis
+All in one structured response matching the provided schema.
 </output_format>"""
 
     # Truncate page content before building the prompt to cap token usage
@@ -97,7 +116,7 @@ Return a single JSON object matching the provided schema with scores, findings, 
     if len(page_content) > _MAX_PAGE_CHARS:
         trimmed += "\n\n...[content truncated]"
 
-    # Data quality note for thin / JS-rendered pages — now considers rich media
+    # Data quality note for thin / JS-rendered pages — considers rich media
     has_rich_media = metrics.has_video or metrics.has_canvas or metrics.svg_count > 0 or metrics.has_lottie or metrics.has_webgl_or_3d
     quality_note = ""
     if metrics.word_count < 300 and not has_rich_media:
@@ -163,20 +182,21 @@ If content appears incomplete, note this limitation in your findings.
 </context>
 
 <task>
-Analyze the page above across all five categories (structure, messaging, CTAs, content depth, UX).
+Perform a complete website audit in two parts:
 
-For **Structure & SEO**: Evaluate heading hierarchy (H1 presence, proper nesting, no skips), meta tag quality (title/description length and relevance), technical SEO signals (viewport, canonical, OG tags, structured data), and overall HTML organization.
+**PART 1 — Analysis**: Evaluate the page across all five categories:
 
-For **Messaging & Clarity**: Assess the value proposition clarity, brand voice consistency, whether the content answers the user's likely intent, and if key messages are prioritized above the fold.
-
-For **CTAs**: Evaluate quantity relative to page length, action-oriented language quality, variety of CTAs (primary vs secondary), and strategic placement signals.
-
-For **Content Depth**: Consider word count relative to topic complexity, use of subheadings for scannability, internal/external link strategy for topical authority, and whether the content demonstrates expertise (E-E-A-T signals).
-
-For **UX**: Assess content readability structure (short paragraphs, logical flow), mobile-readiness signals (viewport meta), image optimization (alt text), rich media usage for engagement, and overall page organization.
+- **Structure & SEO**: Heading hierarchy (H1 presence, proper nesting, no skips), meta tag quality (title/description length and relevance), technical SEO signals (viewport, canonical, OG tags, structured data), and overall HTML organization.
+- **Messaging & Clarity**: Value proposition clarity, brand voice consistency, whether the content answers the user's likely intent, and if key messages are prioritized above the fold.
+- **CTAs**: Quantity relative to page length, action-oriented language quality, variety of CTAs (primary vs secondary), and strategic placement signals.
+- **Content Depth**: Word count relative to topic complexity, use of subheadings for scannability, internal/external link strategy for topical authority, and whether the content demonstrates expertise (E-E-A-T signals).
+- **UX**: Content readability structure (short paragraphs, logical flow), mobile-readiness signals (viewport meta), image optimization (alt text), rich media usage for engagement, and overall page organization.
 
 For each category, provide a score (1-10), findings grounded in specific metrics, and direct evidence.
-Return the result as structured JSON matching the schema.
+
+**PART 2 — Recommendations**: Based on your analysis above, generate 3-5 prioritized recommendations. Focus on the lowest-scoring categories first. Each recommendation must cite specific data and be the kind a web agency would include in a client audit report.
+
+Return everything as a single structured JSON object matching the schema.
 </task>"""
 
     response = _generate_with_retry(
@@ -185,7 +205,7 @@ Return the result as structured JSON matching the schema.
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
             response_mime_type="application/json",
-            response_schema=SEOAnalysis,
+            response_schema=FullAuditResponse,
             temperature=0.2,
         ),
     )
@@ -193,20 +213,20 @@ Return the result as structured JSON matching the schema.
     raw_text = response.text
     try:
         parsed_out = json.loads(raw_text)
-        analysis_result = SEOAnalysis(**parsed_out)
+        full_response = FullAuditResponse(**parsed_out)
     except Exception as e:
         print(f"Error parsing JSON from raw LLM output: {e}\n{raw_text}")
-        raise ValueError("Failed to parse stage 1 response")
+        raise ValueError("Failed to parse audit response")
 
     # Override overall_score with a deterministic weighted average
     weighted = round(
-        analysis_result.structure_score * 0.25
-        + analysis_result.messaging_score * 0.20
-        + analysis_result.cta_score * 0.20
-        + analysis_result.content_depth_score * 0.20
-        + analysis_result.ux_score * 0.15
+        full_response.structure_score * 0.25
+        + full_response.messaging_score * 0.20
+        + full_response.cta_score * 0.20
+        + full_response.content_depth_score * 0.20
+        + full_response.ux_score * 0.15
     )
-    analysis_result.overall_score = max(1, min(10, weighted))
+    full_response.overall_score = max(1, min(10, weighted))
 
     token_usage = {
         "prompt_token_count": response.usage_metadata.prompt_token_count,
@@ -214,107 +234,22 @@ Return the result as structured JSON matching the schema.
         "total_token_count": response.usage_metadata.total_token_count,
     }
 
-    tracer.add_stage("Stage 1 - Analysis", system_prompt, user_prompt, raw_text, parsed_out, token_usage, model=model)
-    return analysis_result
+    tracer.add_stage("Full Audit — Analysis + Recommendations", system_prompt, user_prompt, raw_text, parsed_out, token_usage, model=model)
 
-
-async def recommend_actions(metrics: PageMetrics, analysis: SEOAnalysis, tracer: PromptTracer, *, model: str = MODEL) -> List[Recommendation]:
-    """Stage 2 — Generate prioritized recommendations from Stage 1 analysis.
-    
-    This is a chained prompt: Stage 1 output becomes Stage 2 input context.
-    The prompt is concise because it only references structured data (no raw HTML).
-    """
-
-    system_prompt = """<role>
-You are a senior web consultant at a digital agency that builds high-performing marketing websites.
-You provide actionable, prioritized website improvement recommendations that a development team can immediately implement.
-Think like someone preparing a client proposal — every recommendation should justify its priority with data and have a clear ROI.
-</role>
-
-<constraints>
-1. Generate exactly 3 to 5 recommendations, no more, no fewer.
-2. Every recommendation MUST be directly grounded in a specific metric or analysis finding — never generic advice.
-3. Prioritize by impact: priority 1 = highest impact, must-fix (e.g., missing H1, no meta description); priority 2 = significant improvement; priority 3 = nice-to-have optimization.
-4. The "grounded_metric" field must cite the exact data point (e.g., "4 images missing alt text", "Meta title is 78 chars — exceeds 60-char ideal", "Structure score: 3/10").
-5. The "action" field must be a specific, implementable step (not vague like "improve SEO"). Include concrete guidance (e.g., "Add H1 tag with primary keyword 'X' based on page content", "Add alt text to 4 images describing their visual content").
-6. The "expected_impact" field must describe the concrete outcome (e.g., "Improves image search visibility and accessibility compliance", "Increases CTR in search results by 15-30%").
-7. Consider the full picture: if images are missing but SVGs/video/animations are present, don't prioritize adding images — focus on what's actually broken.
-</constraints>
-
-<output_format>
-Return a JSON array of 3-5 recommendation objects matching the provided schema.
-</output_format>"""
-
-    # Build rich media context
-    rich_media_parts = []
-    if metrics.svg_count > 0:
-        rich_media_parts.append(f"{metrics.svg_count} SVGs")
-    if metrics.has_video:
-        rich_media_parts.append("Video")
-    if metrics.has_canvas:
-        rich_media_parts.append("Canvas")
-    if metrics.has_css_animations:
-        rich_media_parts.append("CSS animations")
-    if metrics.has_lottie:
-        rich_media_parts.append("Lottie")
-    if metrics.has_webgl_or_3d:
-        rich_media_parts.append("WebGL/3D")
-    rich_media_str = ", ".join(rich_media_parts) if rich_media_parts else "None"
-
-    user_prompt = f"""<context>
-## Raw Metrics (factual)
-- Word Count: {metrics.word_count}
-- Images Missing Alt Text: {metrics.images_missing_alt_count} ({metrics.images_missing_alt_pct}%)
-- Meta Title: {metrics.meta_title or 'MISSING'} ({metrics.meta_title_length or 0} chars)
-- Meta Description: {metrics.meta_description or 'MISSING'} ({metrics.meta_description_length or 0} chars)
-- Headings: {json.dumps(metrics.headings_count)}
-- CTAs Found: {metrics.cta_count}
-- Internal Links: {metrics.internal_links} | External Links: {metrics.external_links}
-- Rich Visual Media: {rich_media_str}
-- Viewport Meta: {'Yes' if metrics.has_viewport_meta else 'MISSING'}
-- Canonical: {'Yes' if metrics.has_canonical else 'MISSING'}
-- Open Graph: {'Yes' if metrics.has_open_graph else 'MISSING'}
-- Structured Data: {', '.join(metrics.structured_data_types) if metrics.structured_data_types else 'None'}
-
-## AI Analysis Scores (from Stage 1)
-- Overall: {analysis.overall_score}/10
-- Structure & SEO: {analysis.structure_score}/10 — {analysis.structure_analysis.findings[:300]}
-- Messaging: {analysis.messaging_score}/10 — {analysis.messaging_analysis.findings[:300]}
-- CTAs: {analysis.cta_score}/10 — {analysis.cta_analysis.findings[:300]}
-- Content Depth: {analysis.content_depth_score}/10 — {analysis.content_depth_analysis.findings[:300]}
-- UX: {analysis.ux_score}/10 — {analysis.ux_analysis.findings[:300]}
-</context>
-
-<task>
-Based on the metrics and analysis above, generate 3-5 prioritized recommendations.
-Focus on the lowest-scoring categories first. Each recommendation must cite specific data.
-Recommendations should be the kind a web agency would include in a client audit report — actionable, specific, and tied to measurable outcomes.
-</task>"""
-
-    response = _generate_with_retry(
-        model=model,
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json",
-            response_schema=list[Recommendation],
-            temperature=0.2,
-        ),
+    # Split into SEOAnalysis + Recommendations for backward compatibility
+    analysis = SEOAnalysis(
+        structure_score=full_response.structure_score,
+        messaging_score=full_response.messaging_score,
+        cta_score=full_response.cta_score,
+        content_depth_score=full_response.content_depth_score,
+        ux_score=full_response.ux_score,
+        overall_score=full_response.overall_score,
+        structure_analysis=full_response.structure_analysis,
+        messaging_analysis=full_response.messaging_analysis,
+        cta_analysis=full_response.cta_analysis,
+        content_depth_analysis=full_response.content_depth_analysis,
+        ux_analysis=full_response.ux_analysis,
     )
 
-    raw_text = response.text
-    try:
-        parsed_out = json.loads(raw_text)
-        recommendations = [Recommendation(**rec) for rec in parsed_out]
-    except Exception as e:
-        print(f"Error parsing recommendations: {e}\n{raw_text}")
-        raise ValueError("Failed to parse stage 2 response")
-
-    token_usage = {
-        "prompt_token_count": response.usage_metadata.prompt_token_count,
-        "candidates_token_count": response.usage_metadata.candidates_token_count,
-        "total_token_count": response.usage_metadata.total_token_count,
-    }
-
-    tracer.add_stage("Stage 2 - Recommendations", system_prompt, user_prompt, raw_text, parsed_out, token_usage, model=model)
-    return recommendations
+    recommendations = sorted(full_response.recommendations, key=lambda x: x.priority)
+    return analysis, recommendations
