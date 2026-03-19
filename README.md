@@ -1,181 +1,231 @@
 <p align="center">
-  <h1 align="center">InsightScrape</h1>
-  <p align="center">
-    AI-powered website audit tool that extracts real page metrics and delivers data-grounded SEO, content, and UX insights.
-    <br />
-    <strong>Single-request AI pipeline · Rich media detection · Full transparency</strong>
-  </p>
+  <img src="frontend/public/favicon.svg" width="72" height="72" alt="InsightScrape logo" />
+</p>
+
+<h1 align="center">InsightScrape</h1>
+
+<p align="center">
+  AI-powered website audit tool that extracts real page metrics and delivers data-grounded SEO, content, and UX insights.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/FastAPI-0.135-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/Gemini-AI-4285F4?style=flat-square&logo=google&logoColor=white" alt="Gemini AI" />
+  <img src="https://img.shields.io/badge/Playwright-1.58-2EAD33?style=flat-square&logo=playwright&logoColor=white" alt="Playwright" />
+  <img src="https://img.shields.io/badge/tests-114%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License" />
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#ai-design-decisions">AI Design</a> ·
+  <a href="#api-reference">API Reference</a> ·
+  <a href="#running-tests">Tests</a>
 </p>
 
 ---
 
-## Table of Contents
+## Quick Start
 
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
-- [AI Design Decisions](#ai-design-decisions)
-- [Trade-offs](#trade-offs)
-- [What I'd Improve With More Time](#what-id-improve-with-more-time)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Backend Setup](#backend-setup)
-  - [Frontend Setup](#frontend-setup)
-- [Running Tests](#running-tests)
-- [Project Structure](#project-structure)
-- [License](#license)
+> **Prerequisites:** Python 3.11+, Node.js 18+, and a free [Gemini API key](https://aistudio.google.com/apikey)
+
+```bash
+git clone https://github.com/MadhushanAndawaththa/InsightScrape.git
+cd InsightScrape
+```
+
+**Backend**
+```bash
+cd backend
+python -m venv venv && venv\Scripts\activate   # Windows
+pip install -r requirements.txt
+playwright install chromium
+cp .env.example .env   # then set GEMINI_API_KEY=your_key_here
+python main.py         # → http://localhost:8000
+```
+
+**Frontend**
+```bash
+cd frontend
+npm install
+npm run dev            # → http://localhost:5173
+```
+
+Open **http://localhost:5173** — enter any URL and hit Audit.
 
 ---
 
-## Overview
-
-InsightScrape is a lightweight, AI-native website audit tool. Enter any URL and get:
-
-- **Deterministic metrics** — word count, headings, CTAs, images, links, rich media — scraped from live HTML  
-- **AI-powered analysis** — 5-category scoring (Structure, Messaging, CTAs, Depth, UX) grounded in the extracted data  
-- **Actionable recommendations** — 3–5 prioritized fixes with specific metrics, actions, and expected impact  
-- **Full transparency** — every prompt and raw AI response is visible in an expandable trace panel  
-
-The entire audit — analysis and recommendations — runs in **a single AI request**, minimizing API usage while maximizing context coherence.
-
 ## Features
 
-| Feature | Description |
-|---|---|
-| **Single-Pass AI Audit** | Analysis + recommendations in one Gemini API call using a combined structured schema |
-| **Dual Scraping** | Playwright (JS rendering) with HTTPX fallback for maximum site compatibility |
-| **Rich Media Detection** | SVGs, `<video>`, YouTube/Vimeo embeds, `<canvas>`, CSS animations, Lottie, WebGL/3D |
-| **Technical SEO Signals** | Viewport meta, canonical, Open Graph, Twitter Card, JSON-LD structured data |
-| **Model Selection** | Choose between 4 Gemini models (Flash-Lite → Flash) via the UI |
-| **Graceful Degradation** | If the AI fails, you still get all scraped metrics |
-| **AI Transparency** | Expandable prompt logs show exact system/user prompts and raw responses |
-| **Deterministic Scoring** | Overall score computed server-side as a weighted average, not by the AI |
-| **SSRF Protection** | Backend rejects localhost, 127.0.0.1, and private-range URLs |
-| **Dark Mode** | Toggle with `localStorage` persistence |
+| | Feature | Details |
+|-|---------|---------|
+| 🤖 | **Single-Pass AI Audit** | Analysis + recommendations in one Gemini API call using a combined structured schema |
+| 🕷️ | **Dual Scraping** | Playwright (JS rendering) with HTTPX fallback for maximum site compatibility |
+| 🎬 | **Rich Media Detection** | SVGs, `<video>`, YouTube/Vimeo embeds, `<canvas>`, CSS animations, Lottie, WebGL/3D |
+| 🔍 | **Technical SEO Signals** | Viewport meta, canonical, Open Graph, Twitter Card, JSON-LD structured data |
+| 🧠 | **Model Selection** | Choose between 4 Gemini models (Flash-Lite → Flash) via the UI |
+| 🛡️ | **Graceful Degradation** | If the AI fails, you still get all scraped metrics |
+| 🔎 | **AI Transparency** | Expandable prompt logs show exact system/user prompts and raw responses |
+| 📊 | **Deterministic Scoring** | Overall score computed server-side as a weighted average, not by the AI |
+| 🔒 | **SSRF Protection** | Backend rejects localhost, 127.0.0.1, and private-range URLs |
+| 🌗 | **Dark Mode** | Toggle with `localStorage` persistence |
 
 ---
 
 ## Architecture
 
-```
-┌──────────────────────┐     POST /audit      ┌───────────────────────────────┐
-│                      │ ──────────────────►   │         FastAPI Backend       │
-│   React + Vite +     │                       │                               │
-│   Tailwind CSS       │   ◄────────────────   │  ┌─────────┐  ┌───────────┐  │
-│                      │     AuditResult JSON   │  │ Scraper │  │ AI Service│  │
-│   (Vercel)           │                       │  │ Playwright│  │  Gemini   │  │
-└──────────────────────┘                       │  │ + HTTPX  │  │  API (1x) │  │
-                                               │  └─────────┘  └───────────┘  │
-                                               │        (Render)               │
-                                               └───────────────────────────────┘
+```mermaid
+flowchart LR
+    Browser(["🌐 Browser"])
+    FE["React + Vite\nTailwind CSS\n(Vercel)"]
+    BE["FastAPI Backend\nPython 3.11\n(Render)"]
+    SC["Scraper\nPlaywright + HTTPX\nBeautifulSoup"]
+    AI["AI Service\nGemini API\n1× request"]
+
+    Browser -->|URL input| FE
+    FE -->|POST /audit| BE
+    BE --> SC
+    BE --> AI
+    SC -->|metrics + content| AI
+    AI -->|FullAuditResponse| BE
+    BE -->|JSON results + prompt traces| FE
 ```
 
 **Request flow:**
 
 1. **Fetch** — Playwright renders the page (full JS execution). Falls back to HTTPX if Playwright fails.
 2. **Extract** — BeautifulSoup parses the HTML: headings, CTAs, images, alt text, links, meta tags, rich media (SVG/video/canvas/animations/3D), structured data, technical SEO signals.
-3. **Analyze** — A single Gemini API call receives all metrics + up to 30K chars of visible text → returns structured analysis (5 categories × score + findings + evidence) AND 3–5 prioritized recommendations in one response.
-4. **Score** — The overall score is recomputed server-side as a deterministic weighted average (`structure×0.25 + messaging×0.20 + cTA×0.20 + depth×0.20 + UX×0.15`).
+3. **Analyze** — A single Gemini API call receives all metrics + up to 30K chars of visible text → returns structured analysis (5 categories × score + findings + evidence) AND 3–5 prioritized recommendations.
+4. **Score** — The overall score is recomputed server-side as a deterministic weighted average (`structure×0.25 + messaging×0.20 + CTAs×0.20 + depth×0.20 + UX×0.15`).
 5. **Respond** — Results, metrics, and full prompt traces are returned to the frontend.
 
-### Why a Single AI Request?
+### Tech Stack
 
-Previously, the tool made 2 sequential API calls (analysis → recommendations). Since Gemini models support large context windows (1M+ tokens), both tasks fit comfortably in a single request using a combined `FullAuditResponse` Pydantic schema. This:
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Python 3.11 · FastAPI 0.135 · Pydantic 2.x · Uvicorn |
+| **Scraping** | Playwright 1.58 · HTTPX · BeautifulSoup4 |
+| **AI** | Google Gemini (gemini-2.5-flash-lite / flash / 2.0-flash) |
+| **Frontend** | React 19 · TypeScript · Vite 8 · Tailwind CSS v4 |
+| **Deployment** | Render (Docker) · Vercel |
+| **Testing** | pytest · Vitest · React Testing Library |
+
+<details>
+<summary>Why a single AI request?</summary>
+
+Previously, the tool made 2 sequential API calls (analysis → recommendations). Since Gemini models support large context windows (1M+ tokens), both tasks fit in a single request using a combined `FullAuditResponse` Pydantic schema. This:
 
 - **Halves the API request count** — critical when the free tier allows only 20 RPD
-- **Improves recommendation coherence** — the model generates recommendations in the same context as its analysis, so they reference the *exact* findings it just produced
+- **Improves recommendation coherence** — the model generates recommendations in the same context as its analysis, referencing the *exact* findings it just produced
 - **Reduces latency** — one round-trip instead of two
 
 The prompt uses XML-style tags (`<role>`, `<constraints>`, `<context>`, `<task>`) following Gemini's prompting best practices, and all prompts/responses are captured by a `PromptTracer` for full auditability.
+</details>
 
 ---
 
 ## AI Design Decisions
 
-1. **Dual Scraping Strategy** — Playwright (headless Chromium) renders JavaScript-heavy pages and bypasses bot protection. HTTPX serves as a fast fallback. This ensures real-world agency sites are auditable.
+<details>
+<summary>View all 10 design decisions</summary>
 
-2. **Content Quality Awareness** — When thin content is detected (low word count, no visual media), the system injects a `<data_quality_note>` into the prompt, instructing the AI to score conservatively rather than hallucinate quality. Rich-media-aware: pages using SVGs, video, canvas, Lottie, or WebGL/3D are not falsely flagged.
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | **Dual Scraping Strategy** | Playwright (headless Chromium) renders JS-heavy pages and bypasses bot protection. HTTPX is a fast fallback. |
+| 2 | **Content Quality Awareness** | When thin content is detected, the system injects a `<data_quality_note>` into the prompt, instructing the AI to score conservatively rather than hallucinate quality. |
+| 3 | **Deterministic Grounding** | The AI is explicitly prompted to anchor every claim to a factual metric (e.g., *"4 out of 5 images (80%) lack alt text"*). |
+| 4 | **Structured Output via Pydantic** | `response_schema=FullAuditResponse` with `Field(description=...)` annotations. Gemini returns valid JSON — zero regex parsing. |
+| 5 | **AI Transparency Layer** | Expandable prompt logs in the frontend show system prompt, user prompt, raw JSON response, and token usage for every run. |
+| 6 | **Deterministic Overall Score** | Computed as a weighted average server-side, never by the AI. Ensures auditability and cross-run consistency. |
+| 7 | **Rich Visual Media Detection** | Detects SVGs, CSS animations, Lottie, `<canvas>`, and WebGL/3D *before* DOM cleanup so nothing is missed. |
+| 8 | **Technical SEO Extraction** | Viewport meta, canonical URLs, robots directives, Open Graph, Twitter Cards, and JSON-LD are all extracted and fed to the AI. |
+| 9 | **Expert Prompt Engineering** | Agency context (*"evaluating as a digital agency like EIGHT25MEDIA"*), a scored rubric (1–10), E-E-A-T signals, and meta-length analysis against ideal character ranges. |
+| 10 | **Graceful AI Failure** | If the AI errors (rate limit, timeout), the tool still returns all scraped metrics — partial but useful results instead of a blank page. |
 
-3. **Deterministic Grounding** — The AI is explicitly prompted to anchor every claim to a factual metric (e.g., *"4 out of 5 images (80%) lack alt text"*). We never ask it to guess counts.
-
-4. **Structured Output via Pydantic** — We use `response_schema=FullAuditResponse` with `Field(description=...)` annotations. Gemini returns valid JSON matching the schema — zero regex parsing.
-
-5. **AI Transparency Layer** — The frontend shows expandable prompt logs (system prompt, user prompt, raw JSON response, token usage) so users can verify exactly how the AI reached its conclusions.
-
-6. **Deterministic Overall Score** — Computed as a weighted average server-side, never by the AI. This ensures auditability and cross-run consistency.
-
-7. **Rich Visual Media Detection** — Sites increasingly use SVGs, CSS animations, Lottie, `<canvas>`, and WebGL/3D instead of traditional `<img>` tags. The scraper detects all of these *before* DOM cleanup, so nothing is missed.
-
-8. **Technical SEO Extraction** — Viewport meta, canonical URLs, robots directives, Open Graph, Twitter Cards, and JSON-LD structured data are all extracted and fed into the AI prompt.
-
-9. **Expert Prompt Engineering** — The prompt uses agency context (*"evaluating as a digital agency like EIGHT25MEDIA"*), a scored rubric (1-2 through 9-10), per-category evaluation instructions, E-E-A-T signals, and meta-length analysis against ideal character ranges.
-
-10. **Graceful AI Failure** — If the AI returns an error (rate limit, timeout), the tool still returns all scraped metrics. Users get partial but useful results instead of a blank error page.
+</details>
 
 ---
 
 ## Trade-offs
 
 | Decision | Trade-off |
-|---|---|
+|----------|-----------|
 | **Playwright** | Adds ~50 MB to install size, but is essential for JS-rendered sites. HTTPX is kept as a fast fallback. |
-| **Single AI Request** | One large structured response vs. two focused calls. Slightly larger output schema, but halves API usage and improves recommendation coherence. |
+| **Single AI Request** | One large structured response vs. two focused calls. Slightly larger output schema, but halves API usage and improves coherence. |
 | **CTA Heuristics** | Keyword matching + CSS class detection (`.btn`, `.cta`) + nav-aware filtering. Subjective by nature — a production system would use an ML classifier. |
-| **No Database** | Prompt logs and audit history are ephemeral (generated per request). Reduces deployment complexity but loses historical comparison. |
+| **No Database** | Prompt logs and audit history are ephemeral per request. Reduces deployment complexity but loses historical comparison. |
 | **Free-Tier AI Models** | Limited to 20 RPD on most Gemini models. Single-request architecture mitigates this. |
 
----
-
-## What I'd Improve With More Time
+<details>
+<summary>What I'd improve with more time</summary>
 
 - **Multi-Page Crawling** — Crawl full sitemaps with Celery/Redis workers instead of single-page analysis.
 - **Lighthouse Integration** — Blend AI insights with deterministic Core Web Vitals (LCP, CLS, INP) data.
 - **Audit History & Diffing** — Store previous runs in Postgres and ask the AI to compare versions.
 - **Response Caching** — Cache scrape+AI results by URL hash with a configurable TTL.
 - **CTA ML Classifier** — Replace heuristics with a fine-tuned model for more accurate CTA detection.
-- **Streaming AI Response** — Use Gemini's streaming API to show results progressively as they're generated.
+- **Streaming AI Response** — Use Gemini's streaming API to show results progressively as they generate.
 - **Competitor Benchmarking** — Audit multiple URLs and generate a comparative scorecard.
+</details>
 
 ---
 
-## Getting Started
+## API Reference
 
-### Prerequisites
+| Method | Endpoint | Status | Description |
+|--------|----------|--------|-------------|
+| `GET` | `/health` | `200` | Health check |
+| `POST` | `/audit` | `200` | Run a full audit on a URL |
 
-- **Python 3.11+**
-- **Node.js 18+** and npm
-- **Gemini API Key** — Free from [Google AI Studio](https://aistudio.google.com/apikey)
+<details>
+<summary>Request &amp; response examples</summary>
 
-### Backend Setup
+**POST `/audit`**
+```json
+// Request
+{
+  "url": "https://example.com",
+  "model": "gemini-2.5-flash-lite"
+}
 
-```bash
-cd backend
-python -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate        # macOS/Linux
-venv\Scripts\activate           # Windows
-
-pip install -r requirements.txt
-playwright install chromium     # Downloads headless Chromium (~50 MB)
-
-# Configure API key
-cp .env.example .env
-# Edit .env and set: GEMINI_API_KEY=your_key_here
-
-# Start the server
-python main.py                  # Runs on http://localhost:8000
+// Response 200
+{
+  "url": "https://example.com",
+  "metrics": {
+    "word_count": 384,
+    "cta_count": 25,
+    "internal_links": 49,
+    "external_links": 2,
+    "total_images": 57,
+    "images_missing_alt": 0
+  },
+  "analysis": {
+    "overall_score": 7,
+    "structure_score": 7,
+    "messaging_score": 8,
+    "cta_score": 9,
+    "content_depth_score": 6,
+    "ux_score": 8
+  },
+  "recommendations": [...],
+  "prompt_logs": [...]
+}
 ```
 
-### Frontend Setup
-
-```bash
-cd frontend
-npm install
-npm run dev                     # Runs on http://localhost:5173
+**Validation error — 422**
+```json
+{ "detail": [{ "loc": ["body", "url"], "msg": "URL must use http or https" }] }
 ```
 
-Open `http://localhost:5173` in your browser. Make sure the backend is running.
+**SSRF blocked — 400**
+```json
+{ "detail": "Requests to private/local addresses are not allowed" }
+```
+</details>
 
 ---
 
@@ -188,13 +238,16 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-Tests cover:
+<details>
+<summary>Test coverage breakdown</summary>
+
 - **Scraper** — CTA detection, metrics extraction, edge cases, binary content detection
 - **Rich Media** — SVG counting, video/canvas/Lottie/WebGL detection, CSS animations
 - **Technical SEO** — Viewport, canonical, OG, Twitter Card, JSON-LD, meta lengths
 - **Models** — Pydantic validation, score ranges, serialization roundtrips, `FullAuditResponse`
 - **AI Service** — Weighted score computation, prompt construction, content truncation
 - **API Routes** — Health endpoint, input validation, SSRF protection
+</details>
 
 ### Frontend (15 tests)
 
@@ -203,9 +256,12 @@ cd frontend
 npm test
 ```
 
-Tests cover:
+<details>
+<summary>Test coverage breakdown</summary>
+
 - **API Module** — Request construction, error handling, health check
 - **AuditApp** — Rendering, dark mode toggle + persistence, form validation
+</details>
 
 ---
 
@@ -217,19 +273,16 @@ InsightScrape/
 │   ├── main.py                    # FastAPI app entry point
 │   ├── requirements.txt           # Python dependencies
 │   ├── .env.example               # Template for environment variables
-│   ├── models.py                  # Pydantic schemas (PageMetrics, SEOAnalysis, FullAuditResponse, etc.)
+│   ├── Dockerfile                 # Docker deployment (Render)
+│   ├── models.py                  # Pydantic schemas (PageMetrics, FullAuditResponse, etc.)
 │   ├── routes/
-│   │   └── audit.py               # POST /audit endpoint with input validation
+│   │   └── audit.py               # POST /audit endpoint with SSRF protection
 │   ├── services/
-│   │   ├── ai_service.py          # Single-pass Gemini AI audit (analysis + recommendations)
+│   │   ├── ai_service.py          # Single-pass Gemini AI audit
 │   │   ├── audit_orchestrator.py  # Orchestrates scrape → AI → response
-│   │   ├── prompt_tracer.py       # Captures all prompts and responses for transparency
+│   │   ├── prompt_tracer.py       # Captures all prompts and responses
 │   │   └── scraper.py             # Playwright/HTTPX scraping + metrics extraction
-│   └── tests/
-│       ├── test_ai_service.py     # AI prompt construction and score tests
-│       ├── test_api.py            # API route and SSRF tests
-│       ├── test_models.py         # Pydantic model validation tests
-│       └── test_scraper.py        # Scraper, rich media, and technical SEO tests
+│   └── tests/                     # 100+ pytest tests
 ├── frontend/
 │   ├── src/
 │   │   ├── api/audit.ts           # API client and TypeScript types
@@ -239,8 +292,8 @@ InsightScrape/
 │   ├── package.json
 │   └── vite.config.ts
 ├── prompt_logs/
-│   ├── example_audit_1.json       # Real audit log (gemini-2.5-flash-lite)
-│   └── example_audit_2.json       # Real audit log (gemini-2.5-flash)
+│   ├── example_audit_1.json       # Real audit log — gemini-2.5-flash-lite
+│   └── example_audit_2.json       # Real audit log — gemini-2.5-flash
 ├── .gitignore
 └── README.md
 ```
@@ -249,4 +302,4 @@ InsightScrape/
 
 ## License
 
-This project was built as a 24-hour engineering assignment for [EIGHT25MEDIA](https://eight25media.com).
+MIT © 2026 Madhushan Andawaththa · Built as a 24-hour engineering assignment for [EIGHT25MEDIA](https://eight25media.com)
