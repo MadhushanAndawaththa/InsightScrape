@@ -240,7 +240,7 @@ Tests cover:
    - **Output Directory:** `dist`
 
 3. **Set environment variables** in the Vercel dashboard (Settings → Environment Variables):
-   - `VITE_API_URL` = `https://insightscrape.onrender.com/api`
+   - `VITE_API_URL` = `https://insight-scrape.onrender.com/api`
 
    > This is a **build-time** variable — Vite bakes it into the JS bundle during `npm run build`. No code changes needed.
 
