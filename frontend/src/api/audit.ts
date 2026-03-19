@@ -1,12 +1,19 @@
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
+export interface ModelInfo {
+  id: string;
+  name: string;
+  tier: string;
+}
+
 export interface AuditResult {
   url: string;
   metrics: PageMetrics;
-  analysis: SEOAnalysis;
+  analysis: SEOAnalysis | null;
   recommendations: Recommendation[];
   prompt_logs: PromptLog[];
   audit_duration_ms: number;
+  ai_error: string | null;
 }
 
 export interface PageMetrics {
@@ -67,11 +74,11 @@ export interface PromptLog {
   token_usage?: Record<string, number>;
 }
 
-export const runAudit = async (url: string): Promise<AuditResult> => {
+export const runAudit = async (url: string, model?: string): Promise<AuditResult> => {
   const res = await fetch(`${API_URL}/audit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, model }),
   });
 
   if (!res.ok) {
@@ -80,6 +87,17 @@ export const runAudit = async (url: string): Promise<AuditResult> => {
   }
 
   return res.json();
+};
+
+export const fetchModels = async (): Promise<ModelInfo[]> => {
+  try {
+    const res = await fetch(`${API_URL}/models`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.models || [];
+  } catch {
+    return [];
+  }
 };
 
 export const checkHealth = async (): Promise<boolean> => {

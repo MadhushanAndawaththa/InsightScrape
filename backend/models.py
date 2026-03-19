@@ -55,10 +55,19 @@ class PromptLog(BaseModel):
     model: str = "gemini-2.5-flash-lite"
     token_usage: Optional[Dict[str, int]] = None
 
+
+AVAILABLE_MODELS = [
+    {"id": "gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "tier": "Free (20 RPD)"},
+    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "tier": "Free (20 RPD)"},
+    {"id": "gemini-3-flash", "name": "Gemini 3 Flash", "tier": "Free (20 RPD)"},
+    {"id": "gemini-3.1-flash-lite", "name": "Gemini 3.1 Flash Lite", "tier": "Free (500 RPD)"},
+]
+
 class AuditResult(BaseModel):
     url: str
     metrics: PageMetrics
-    analysis: SEOAnalysis
-    recommendations: List[Recommendation]
-    prompt_logs: List[PromptLog]
+    analysis: Optional[SEOAnalysis] = None
+    recommendations: List[Recommendation] = []
+    prompt_logs: List[PromptLog] = []
     audit_duration_ms: int
+    ai_error: Optional[str] = None

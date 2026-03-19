@@ -5,7 +5,7 @@ from services.ai_service import analyze_page, recommend_actions
 from services.prompt_tracer import PromptTracer
 from fastapi import HTTPException
 
-async def run_audit(url: str) -> AuditResult:
+async def run_audit(url: str, model: str = "gemini-2.5-flash-lite") -> AuditResult:
     start_time = time.time()
     tracer = PromptTracer()
 
@@ -16,20 +16,25 @@ async def run_audit(url: str) -> AuditResult:
 
     metrics, visible_text = extract_metrics(html_content, url, scrape_method)
 
-    try:
-        analysis = await analyze_page(metrics, visible_text, tracer)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"AI Analysis failed: {str(e)}")
+    analysis = None
+    recommendations = []
+    ai_error = None
 
     try:
-        recommendations = await recommend_actions(metrics, analysis, tracer)
+        analysis = await analyze_page(metrics, visible_text, tracer, model=model)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"AI Recommendations failed: {str(e)}")
+        ai_error = f"AI Analysis failed: {str(e)}"
+        print(f"[orchestrator] {ai_error}")
+
+    if analysis:
+        try:
+            recommendations = await recommend_actions(metrics, analysis, tracer, model=model)
+            recommendations = sorted(recommendations, key=lambda x: x.priority)
+        except Exception as e:
+            ai_error = f"AI Recommendations failed: {str(e)}"
+            print(f"[orchestrator] {ai_error}")
 
     duration_ms = int((time.time() - start_time) * 1000)
-
-    # Sort recommendations by priority (1 is highest priority)
-    recommendations = sorted(recommendations, key=lambda x: x.priority)
 
     return AuditResult(
         url=url,
@@ -37,5 +42,6 @@ async def run_audit(url: str) -> AuditResult:
         analysis=analysis,
         recommendations=recommendations,
         prompt_logs=tracer.stages,
-        audit_duration_ms=duration_ms
+        audit_duration_ms=duration_ms,
+        ai_error=ai_error,
     )

@@ -50,7 +50,7 @@ def _generate_with_retry(model: str, contents: str, config: types.GenerateConten
             raise
 
 
-async def analyze_page(metrics: PageMetrics, page_content: str, tracer: PromptTracer) -> SEOAnalysis:
+async def analyze_page(metrics: PageMetrics, page_content: str, tracer: PromptTracer, *, model: str = MODEL) -> SEOAnalysis:
     """Stage 1 — Structured analysis of the scraped page.
     
     Prompt engineering follows Gemini best practices:
@@ -119,7 +119,7 @@ Return the result as structured JSON matching the schema.
 </task>"""
 
     response = _generate_with_retry(
-        model=MODEL,
+        model=model,
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
@@ -153,11 +153,11 @@ Return the result as structured JSON matching the schema.
         "total_token_count": response.usage_metadata.total_token_count,
     }
 
-    tracer.add_stage("Stage 1 - Analysis", system_prompt, user_prompt, raw_text, parsed_out, token_usage)
+    tracer.add_stage("Stage 1 - Analysis", system_prompt, user_prompt, raw_text, parsed_out, token_usage, model=model)
     return analysis_result
 
 
-async def recommend_actions(metrics: PageMetrics, analysis: SEOAnalysis, tracer: PromptTracer) -> List[Recommendation]:
+async def recommend_actions(metrics: PageMetrics, analysis: SEOAnalysis, tracer: PromptTracer, *, model: str = MODEL) -> List[Recommendation]:
     """Stage 2 — Generate prioritized recommendations from Stage 1 analysis.
     
     This is a chained prompt: Stage 1 output becomes Stage 2 input context.
@@ -206,7 +206,7 @@ Focus on the lowest-scoring categories first. Each recommendation must cite spec
 </task>"""
 
     response = _generate_with_retry(
-        model=MODEL,
+        model=model,
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
@@ -230,5 +230,5 @@ Focus on the lowest-scoring categories first. Each recommendation must cite spec
         "total_token_count": response.usage_metadata.total_token_count,
     }
 
-    tracer.add_stage("Stage 2 - Recommendations", system_prompt, user_prompt, raw_text, parsed_out, token_usage)
+    tracer.add_stage("Stage 2 - Recommendations", system_prompt, user_prompt, raw_text, parsed_out, token_usage, model=model)
     return recommendations

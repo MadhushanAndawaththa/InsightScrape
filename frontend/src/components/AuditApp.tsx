@@ -1,10 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { checkHealth, runAudit, type AuditResult, type SectionAnalysis } from '../api/audit';
+import { checkHealth, runAudit, fetchModels, type AuditResult, type SectionAnalysis, type ModelInfo } from '../api/audit';
 import ReactMarkdown from 'react-markdown';
 import {
   Search, Sun, Moon, Globe, Clock, FileText, Link2, Image, MousePointerClick,
   AlertTriangle, ChevronDown, Sparkles, Shield, BarChart3, Zap, Eye, Type,
-  ExternalLink, ArrowRight, Terminal, Hash,
+  ExternalLink, ArrowRight, Terminal, Hash, RefreshCw, Cpu,
 } from 'lucide-react';
 
 /* ───────────────────────── Helpers ───────────────────────── */
@@ -145,6 +145,8 @@ export const AuditApp = () => {
     return false;
   });
   const [loadStep, setLoadStep] = useState(0);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash-lite');
 
   // Theme persistence
   useEffect(() => {
@@ -152,20 +154,24 @@ export const AuditApp = () => {
     localStorage.setItem('insightscrape-theme', dark ? 'dark' : 'light');
   }, [dark]);
 
-  // API warmup
+  // API warmup + fetch models
   useEffect(() => {
     let isMounted = true;
     const warmup = async () => {
       try {
-        const healthy = await checkHealth();
-        if (isMounted && healthy) setStatus('ready');
-        else if (isMounted) setTimeout(() => { if (isMounted) setStatus('ready'); }, 2500);
-      } catch { if (isMounted) setTimeout(() => { if (isMounted) setStatus('ready'); }, 2500); }
+        const [healthy, modelList] = await Promise.all([checkHealth(), fetchModels()]);
+        if (isMounted) {
+          if (modelList.length > 0) setModels(modelList);
+          if (healthy) setStatus('ready');
+          else setTimeout(() => { if (isMounted) setStatus('ready'); }, 2500);
+        }
+      } catch {
+        if (isMounted) setTimeout(() => { if (isMounted) setStatus('ready'); }, 2500);
+      }
     };
     warmup();
     return () => { isMounted = false; };
   }, []);
-
   // Simulated loading steps
   useEffect(() => {
     if (status !== 'loading') return;
@@ -185,7 +191,7 @@ export const AuditApp = () => {
     setError('');
     setResult(null);
     try {
-      const data = await runAudit(url);
+      const data = await runAudit(url, selectedModel);
       setResult(data);
       setStatus('success');
     } catch (err: unknown) {
@@ -194,22 +200,39 @@ export const AuditApp = () => {
     }
   };
 
+  const handleRetryWithModel = async (modelId: string) => {
+    setSelectedModel(modelId);
+    setStatus('loading');
+    setError('');
+    try {
+      const data = await runAudit(url, modelId);
+      setResult(data);
+      setStatus('success');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred during the audit');
+      setStatus('error');
+    }
+  };
+
+  const hasAI = result?.analysis != null;
+  const hasResults = result != null;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
 
       {/* ─── Top nav bar ────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-gray-950/80 border-b border-gray-200 dark:border-white/10">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-base sm:text-lg tracking-tight">InsightScrape</span>
+            <span className="font-bold text-base tracking-tight">InsightScrape</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2">
             {result && (
               <span className="text-[11px] font-mono text-gray-400 dark:text-gray-500 hidden sm:block">
-                Audit completed in {formatDuration(result.audit_duration_ms)}
+                {formatDuration(result.audit_duration_ms)}
               </span>
             )}
             <button
@@ -223,23 +246,23 @@ export const AuditApp = () => {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-8 sm:space-y-10">
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
 
         {/* ─── Hero / Search ────────────────────────────────── */}
         {(!result || status !== 'success') && (
-          <div className="text-center space-y-6 py-6 sm:py-8">
-            <div className="space-y-3">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-400 dark:to-indigo-400 bg-clip-text text-transparent">
+          <div className="text-center space-y-5 py-4 sm:py-8">
+            <div className="space-y-2">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-400 dark:to-indigo-400 bg-clip-text text-transparent">
                 AI-Powered Website Audit
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
+              <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
                 Enter any URL to get a deep, AI-driven analysis of SEO, content structure, accessibility, and UX.
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
+            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-3">
               <div className="flex flex-col sm:flex-row gap-2 p-1.5 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-lg shadow-gray-200/50 dark:shadow-black/20">
-                <div className="flex-1 flex items-center gap-2 pl-4">
+                <div className="flex-1 flex items-center gap-2 pl-3 sm:pl-4">
                   <Globe className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <input
                     type="url"
@@ -247,24 +270,26 @@ export const AuditApp = () => {
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     required
-                    className="flex-1 bg-transparent outline-none text-sm sm:text-base py-2.5 placeholder-gray-400 dark:placeholder-gray-500"
+                    className="flex-1 bg-transparent outline-none text-sm py-2.5 placeholder-gray-400 dark:placeholder-gray-500 min-w-0"
                     disabled={status === 'warming' || status === 'loading'}
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={status === 'warming' || status === 'loading'}
-                  className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm disabled:opacity-40 transition-all flex items-center justify-center gap-2 shadow-md shadow-violet-500/25"
+                  className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm disabled:opacity-40 transition-all flex items-center justify-center gap-2 shadow-md shadow-violet-500/25"
                 >
                   {status === 'warming' ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Connecting...
+                      <span className="hidden sm:inline">Connecting...</span>
+                      <span className="sm:hidden">Wait...</span>
                     </>
                   ) : status === 'loading' ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Analyzing...
+                      <span className="hidden sm:inline">Analyzing...</span>
+                      <span className="sm:hidden">...</span>
                     </>
                   ) : (
                     <>
@@ -274,36 +299,71 @@ export const AuditApp = () => {
                   )}
                 </button>
               </div>
+
+              {/* Model selector */}
+              {models.length > 0 && (
+                <div className="flex items-center justify-center gap-2 text-xs">
+                  <Cpu className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-gray-400 dark:text-gray-500">Model:</span>
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-1 focus:ring-violet-500"
+                    disabled={status === 'loading'}
+                  >
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} — {m.tier}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </form>
           </div>
         )}
 
         {/* ─── Inline URL bar when results are showing ──────── */}
-        {result && status === 'success' && (
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 p-1.5 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10">
-            <div className="flex-1 flex items-center gap-2 pl-3">
-              <Globe className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <input
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                required
-                className="flex-1 bg-transparent outline-none text-sm py-2 placeholder-gray-400"
-              />
-            </div>
-            <button type="submit"
-              className="px-5 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 shadow-md shadow-violet-500/25 hover:from-violet-700 hover:to-indigo-700 transition-all"
-            >
-              <Search className="w-3.5 h-3.5" /> Re-Audit
-            </button>
-          </form>
+        {hasResults && status === 'success' && (
+          <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 p-1.5 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10">
+              <div className="flex-1 flex items-center gap-2 pl-3">
+                <Globe className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  required
+                  className="flex-1 bg-transparent outline-none text-sm py-2 placeholder-gray-400 min-w-0"
+                />
+              </div>
+              <div className="flex gap-2">
+                {models.length > 0 && (
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-2 text-xs text-gray-700 dark:text-gray-300 outline-none min-w-0"
+                  >
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                )}
+                <button type="submit"
+                  className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5 shadow-md shadow-violet-500/25 hover:from-violet-700 hover:to-indigo-700 transition-all whitespace-nowrap"
+                >
+                  <Search className="w-3.5 h-3.5" /> Re-Audit
+                </button>
+              </div>
+            </form>
+          </div>
         )}
 
         {/* ─── Error ────────────────────────────────────────── */}
         {error && (
           <div className="flex items-start gap-3 p-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300">
             <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <div className="text-sm">{error}</div>
+            <div className="text-sm break-all">{error}</div>
           </div>
         )}
 
@@ -311,47 +371,84 @@ export const AuditApp = () => {
         {status === 'loading' && <LoadingState step={loadStep} />}
 
         {/* ═══════════════ RESULTS ════════════════════════════ */}
-        {result && status === 'success' && (
-          <div className="space-y-8 sm:space-y-10 animate-fade-up">
+        {hasResults && status === 'success' && (
+          <div className="space-y-6 animate-fade-up">
 
             {/* ── Audited URL banner ──────────────────────────── */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 justify-between">
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 min-w-0">
                 <Shield className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                <span>Audit completed for</span>
+                <span className="flex-shrink-0">Audit for</span>
                 <a href={result.url} target="_blank" rel="noopener noreferrer"
-                  className="text-violet-600 dark:text-violet-400 font-medium hover:underline inline-flex items-center gap-1 break-all">
-                  {result.url} <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                  className="text-violet-600 dark:text-violet-400 font-medium hover:underline inline-flex items-center gap-1 truncate min-w-0">
+                  <span className="truncate">{result.url}</span>
+                  <ExternalLink className="w-3 h-3 flex-shrink-0" />
                 </a>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 font-mono">
+              <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 font-mono flex-shrink-0">
                 <Clock className="w-3.5 h-3.5" /> {formatDuration(result.audit_duration_ms)}
               </div>
             </div>
 
-            {/* ── Overall Score + Sub-scores ───────────────────── */}
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-              {/* Big ring */}
-              <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 p-6 sm:p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-indigo-500" />
-                <div className="relative">
-                  <ScoreRing score={result.analysis.overall_score} size={140} />
+            {/* ── AI Error Banner ─────────────────────────────── */}
+            {result.ai_error && (
+              <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      AI analysis unavailable
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 break-all">{result.ai_error}</p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Scraped metrics are shown below. Try a different model to get AI analysis:
+                    </p>
+                    {models.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {models
+                          .filter((m) => m.id !== selectedModel)
+                          .map((m) => (
+                            <button
+                              key={m.id}
+                              onClick={() => handleRetryWithModel(m.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-500/30 transition-colors"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              {m.name}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <span className="mt-4 font-bold text-gray-700 dark:text-gray-300">Overall Score</span>
               </div>
+            )}
 
-              {/* Sub-score bars */}
-              <div className="md:col-span-2 bg-white dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 p-5 sm:p-6 space-y-3 sm:space-y-4">
-                <h3 className="font-bold text-xs sm:text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category Breakdown</h3>
-                <div className="space-y-3">
-                  <MiniBar score={result.analysis.structure_score} label="Structure & SEO" />
-                  <MiniBar score={result.analysis.messaging_score} label="Messaging & Clarity" />
-                  <MiniBar score={result.analysis.cta_score} label="Calls to Action" />
-                  <MiniBar score={result.analysis.content_depth_score} label="Content Depth" />
-                  <MiniBar score={result.analysis.ux_score} label="User Experience" />
+            {/* ── Overall Score + Sub-scores (only if AI succeeded) ── */}
+            {hasAI && result.analysis && (
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Big ring */}
+                <div className="bg-white dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-indigo-500" />
+                  <div className="relative">
+                    <ScoreRing score={result.analysis.overall_score} size={140} />
+                  </div>
+                  <span className="mt-4 font-bold text-gray-700 dark:text-gray-300">Overall Score</span>
                 </div>
-              </div>
-            </section>
+
+                {/* Sub-score bars */}
+                <div className="md:col-span-2 bg-white dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 p-4 sm:p-6 space-y-3">
+                  <h3 className="font-bold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category Breakdown</h3>
+                  <div className="space-y-3">
+                    <MiniBar score={result.analysis.structure_score} label="Structure & SEO" />
+                    <MiniBar score={result.analysis.messaging_score} label="Messaging & Clarity" />
+                    <MiniBar score={result.analysis.cta_score} label="Calls to Action" />
+                    <MiniBar score={result.analysis.content_depth_score} label="Content Depth" />
+                    <MiniBar score={result.analysis.ux_score} label="User Experience" />
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* ── Factual Metrics Grid ─────────────────────────── */}
             <section>
@@ -379,7 +476,7 @@ export const AuditApp = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-3">
                 <MetricCard icon={FileText} label="Words" value={result.metrics.word_count.toLocaleString()} />
                 <MetricCard icon={MousePointerClick} label="CTAs Found" value={result.metrics.cta_count} accent />
                 <MetricCard icon={Link2} label="Internal Links" value={result.metrics.internal_links} />
@@ -432,115 +529,121 @@ export const AuditApp = () => {
               )}
             </section>
 
-            {/* ── AI Analysis Sections ─────────────────────────── */}
-            <section>
-              <SectionHeader
-                icon={Sparkles}
-                title="AI-Generated Analysis"
-                subtitle={`Powered by ${result.prompt_logs?.[0]?.model || 'Gemini'}`}
-                badge="AI"
-              />
-              <div className="mt-4 space-y-4">
-                <AnalysisCard label="Structure & SEO" icon={Search} analysis={result.analysis.structure_analysis} />
-                <AnalysisCard label="Messaging" icon={Type} analysis={result.analysis.messaging_analysis} />
-                <AnalysisCard label="Calls to Action" icon={MousePointerClick} analysis={result.analysis.cta_analysis} />
-                <AnalysisCard label="Content Depth" icon={FileText} analysis={result.analysis.content_depth_analysis} />
-                <AnalysisCard label="User Experience" icon={Eye} analysis={result.analysis.ux_analysis} />
-              </div>
-            </section>
+            {/* ── AI Analysis Sections (only if AI succeeded) ─── */}
+            {hasAI && result.analysis && (
+              <section>
+                <SectionHeader
+                  icon={Sparkles}
+                  title="AI-Generated Analysis"
+                  subtitle={`Powered by ${result.prompt_logs?.[0]?.model || 'Gemini'}`}
+                  badge="AI"
+                />
+                <div className="mt-4 space-y-4">
+                  <AnalysisCard label="Structure & SEO" icon={Search} analysis={result.analysis.structure_analysis} />
+                  <AnalysisCard label="Messaging" icon={Type} analysis={result.analysis.messaging_analysis} />
+                  <AnalysisCard label="Calls to Action" icon={MousePointerClick} analysis={result.analysis.cta_analysis} />
+                  <AnalysisCard label="Content Depth" icon={FileText} analysis={result.analysis.content_depth_analysis} />
+                  <AnalysisCard label="User Experience" icon={Eye} analysis={result.analysis.ux_analysis} />
+                </div>
+              </section>
+            )}
 
-            {/* ── Recommendations ──────────────────────────────── */}
-            <section>
-              <SectionHeader icon={Zap} title="Prioritized Recommendations" subtitle="Actionable fixes grounded in metrics" />
-              <div className="mt-4 space-y-3">
-                {result.recommendations.map((rec, i) => (
-                  <div key={i}
-                    className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 p-4 sm:p-5 hover:shadow-md dark:hover:shadow-black/20 transition-shadow"
-                  >
-                    <div className="flex items-start gap-3 sm:gap-4">
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${priorityStyle(rec.priority)}`}>
-                        P{rec.priority}
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-start sm:items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-sm sm:text-base">{rec.title}</h3>
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 capitalize">
-                            {categoryIcon(rec.category)} {rec.category}
-                          </span>
+            {/* ── Recommendations (only if available) ──────────── */}
+            {result.recommendations.length > 0 && (
+              <section>
+                <SectionHeader icon={Zap} title="Prioritized Recommendations" subtitle="Actionable fixes grounded in metrics" />
+                <div className="mt-4 space-y-3">
+                  {result.recommendations.map((rec, i) => (
+                    <div key={i}
+                      className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 p-4 hover:shadow-md dark:hover:shadow-black/20 transition-shadow"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${priorityStyle(rec.priority)}`}>
+                          P{rec.priority}
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{rec.description}</p>
-                        <div className="flex flex-col sm:flex-row gap-2 text-xs">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-300 font-medium">
-                            <BarChart3 className="w-3 h-3" /> {rec.grounded_metric}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 text-sky-700 dark:text-sky-300 font-medium">
-                            <ArrowRight className="w-3 h-3" /> {rec.action}
-                          </span>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-start gap-2 flex-wrap">
+                            <h3 className="font-bold text-sm">{rec.title}</h3>
+                            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 capitalize">
+                              {categoryIcon(rec.category)} {rec.category}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{rec.description}</p>
+                          <div className="flex flex-col sm:flex-row gap-2 text-xs">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-300 font-medium">
+                              <BarChart3 className="w-3 h-3" /> {rec.grounded_metric}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 text-sky-700 dark:text-sky-300 font-medium">
+                              <ArrowRight className="w-3 h-3" /> {rec.action}
+                            </span>
+                          </div>
+                          {rec.expected_impact && (
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                              Expected Impact: {rec.expected_impact}
+                            </p>
+                          )}
                         </div>
-                        {rec.expected_impact && (
-                          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                            Expected Impact: {rec.expected_impact}
-                          </p>
-                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
+            )}
 
-            {/* ── Transparency Panel ──────────────────────────── */}
-            <section>
-              <SectionHeader icon={Terminal} title="Prompt Logs & Reasoning Trace" subtitle="Full AI transparency — see the exact prompts and raw model responses" />
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 ml-11 sm:ml-12 mb-3">
-                These logs show exactly how the AI analysis was orchestrated — the system prompts, structured inputs, and raw outputs. Click to expand each stage.
-              </p>
-              <div className="mt-2 rounded-2xl overflow-hidden border border-gray-800 dark:border-white/10 bg-gray-900 dark:bg-black/40">
-                {result.prompt_logs.map((log, i) => (
-                  <details key={i} className="group border-b border-gray-800 dark:border-white/5 last:border-0">
-                    <summary className="flex justify-between items-center cursor-pointer list-none p-4 hover:bg-white/5 transition-colors select-none">
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded bg-violet-500/20 flex items-center justify-center text-violet-400 font-mono text-xs font-bold">
-                          {i + 1}
-                        </span>
-                        <span className="text-blue-400 font-mono text-sm font-medium">{log.stage}</span>
-                        {log.token_usage && (
-                          <span className="text-[10px] font-mono text-gray-500 hidden sm:inline-block">
-                            {log.token_usage.total_token_count?.toLocaleString()} tokens
+            {/* ── Transparency Panel (only if prompt logs exist) ─ */}
+            {result.prompt_logs.length > 0 && (
+              <section>
+                <SectionHeader icon={Terminal} title="Prompt Logs & Reasoning Trace" subtitle="Full AI transparency — see the exact prompts and raw model responses" />
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 ml-10 mb-3">
+                  These logs show exactly how the AI analysis was orchestrated — the system prompts, structured inputs, and raw outputs.
+                </p>
+                <div className="mt-2 rounded-2xl overflow-hidden border border-gray-800 dark:border-white/10 bg-gray-900 dark:bg-black/40">
+                  {result.prompt_logs.map((log, i) => (
+                    <details key={i} className="group border-b border-gray-800 dark:border-white/5 last:border-0">
+                      <summary className="flex justify-between items-center cursor-pointer list-none p-3 sm:p-4 hover:bg-white/5 transition-colors select-none">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                          <span className="w-6 h-6 rounded bg-violet-500/20 flex items-center justify-center text-violet-400 font-mono text-xs font-bold flex-shrink-0">
+                            {i + 1}
                           </span>
-                        )}
-                      </div>
-                      <ChevronDown className="w-4 h-4 text-gray-500 transition-transform group-open:rotate-180" />
-                    </summary>
-                    <div className="px-4 pb-4 space-y-3 text-xs font-mono overflow-x-auto">
-                      <div className="rounded-lg bg-black/50 p-3 space-y-1">
-                        <div className="text-gray-500 text-[10px] uppercase tracking-widest">System Prompt</div>
-                        <div className="text-emerald-400/90 whitespace-pre-wrap leading-relaxed">{log.system_prompt}</div>
-                      </div>
-                      <div className="rounded-lg bg-black/50 p-3 space-y-1">
-                        <div className="text-gray-500 text-[10px] uppercase tracking-widest">User Prompt → {log.model}</div>
-                        <div className="text-amber-300/90 whitespace-pre-wrap leading-relaxed">
-                          {log.user_prompt.length > 1500
-                            ? log.user_prompt.substring(0, 1500) + '\n\n...[TRUNCATED IN UI — full prompt available in API response]...'
-                            : log.user_prompt}
+                          <span className="text-blue-400 font-mono text-xs sm:text-sm font-medium truncate">{log.stage}</span>
+                          {log.token_usage && (
+                            <span className="text-[10px] font-mono text-gray-500 hidden sm:inline-block flex-shrink-0">
+                              {log.token_usage.total_token_count?.toLocaleString()} tokens
+                            </span>
+                          )}
+                        </div>
+                        <ChevronDown className="w-4 h-4 text-gray-500 transition-transform group-open:rotate-180 flex-shrink-0" />
+                      </summary>
+                      <div className="px-3 sm:px-4 pb-4 space-y-3 text-xs font-mono overflow-x-auto">
+                        <div className="rounded-lg bg-black/50 p-3 space-y-1">
+                          <div className="text-gray-500 text-[10px] uppercase tracking-widest">System Prompt</div>
+                          <div className="text-emerald-400/90 whitespace-pre-wrap leading-relaxed break-all">{log.system_prompt}</div>
+                        </div>
+                        <div className="rounded-lg bg-black/50 p-3 space-y-1">
+                          <div className="text-gray-500 text-[10px] uppercase tracking-widest">User Prompt → {log.model}</div>
+                          <div className="text-amber-300/90 whitespace-pre-wrap leading-relaxed break-all">
+                            {log.user_prompt.length > 1500
+                              ? log.user_prompt.substring(0, 1500) + '\n\n...[TRUNCATED IN UI — full prompt available in API response]...'
+                              : log.user_prompt}
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-black/50 p-3 space-y-1">
+                          <div className="text-gray-500 text-[10px] uppercase tracking-widest">Raw JSON Output</div>
+                          <div className="text-sky-300/90 whitespace-pre-wrap leading-relaxed break-all">{log.raw_response}</div>
                         </div>
                       </div>
-                      <div className="rounded-lg bg-black/50 p-3 space-y-1">
-                        <div className="text-gray-500 text-[10px] uppercase tracking-widest">Raw JSON Output</div>
-                        <div className="text-sky-300/90 whitespace-pre-wrap leading-relaxed">{log.raw_response}</div>
-                      </div>
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </section>
+                    </details>
+                  ))}
+                </div>
+              </section>
+            )}
 
           </div>
         )}
       </main>
 
       {/* ─── Footer ─────────────────────────────────────────── */}
-      <footer className="border-t border-gray-200 dark:border-white/5 mt-16 py-6 text-center text-xs text-gray-400 dark:text-gray-600">
+      <footer className="border-t border-gray-200 dark:border-white/5 mt-12 py-6 text-center text-xs text-gray-400 dark:text-gray-600">
         Built with FastAPI, React, Tailwind CSS and Gemini AI
       </footer>
     </div>

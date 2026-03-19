@@ -6,6 +6,7 @@ import { AuditApp } from '../components/AuditApp';
 vi.mock('../api/audit', () => ({
   checkHealth: vi.fn().mockResolvedValue(true),
   runAudit: vi.fn(),
+  fetchModels: vi.fn().mockResolvedValue([]),
 }));
 
 // Mock react-markdown to avoid ESM issues in tests
